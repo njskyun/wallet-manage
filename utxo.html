@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitcoin Wallet Manager</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Header & Navigation -->
+  <header class="fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark">
+      <div class="container">
+        <a class="navbar-brand" href="#"><i class="fab fa-bitcoin me-2"></i>BTC Wallet Manager</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" data-page="home" href="./index.html">首页</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" data-page="utxo" href="./utxo.html">UTXO管理</a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" data-page="replace" href="./replace.html">替换交易</a>
+            </li>
+
+          </ul>
+          <div class="d-flex wallet-section">
+            <button id="connectWallet" class="btn btn-outline-light"><i class="fas fa-wallet me-2"></i>连接BTC钱包</button>
+            <div id="walletInfo" class="wallet-info d-none">
+              <span class="wallet-label">钱包地址:</span>
+              <span id="walletAddress" class="wallet-address"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="container main-container"> 
+    <!-- UTXO Management Page -->
+    <div id="utxoPage" class="page-content">
+      <div class="content-card">
+        <h2>UTXO 管理</h2>
+        <p>管理您的未花费交易输出，进行安全高效的转账</p>
+        <form id="utxoForm" class="mt-4">
+          <div class="mb-3">
+            <label for="utxoInput" class="form-label">可用 UTXO</label>
+            <select  class="form-select"  id="utxoInput">
+              <option value="">-- 请选择 --</option> 
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="transferAmount" class="form-label">每个地址, 转账金额 (BTC)</label>
+            <input type="number" step="0.00000001" class="form-control" id="transferAmount" placeholder="例如：0.001">
+          </div>
+          <div class="mb-3">
+            <label for="targetAddresses" class="form-label">目标地址</label>
+            <textarea class="form-control" id="targetAddresses" rows="4" placeholder="每行输入一个目标地址，可转给多人"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="feeRate" class="form-label">费率 (sat/vByte)</label>
+            <input type="text" class="form-control" id="feeRate" placeholder="例如：10">
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">确认交易</button>
+          </div>
+        </form>
+      </div>
+    </div> 
+  </main>
+ 
+
+  <!-- Modals -->
+  <div class="modal fade" id="transactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">交易确认</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="transactionDetails"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="confirmTransaction">确认交易</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <p>&copy; 2025 Bitcoin 钱包管理工具 | <a href="#" class="text-light">使用条款</a> | <a href="#" class="text-light">隐私政策</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- jQuery -->
+  <!-- <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script> -->
+  <!-- Bootstrap JS Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script> 
+  <script src="https://cdn.jsdelivr.net/npm/@zhigang1992/bitcoinjs-lib-browser@6.0.0/bitcoinjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-message@2.2.0/index.min.js"></script>
+  <script src="https://mempool.space/mempool.js"></script>
+
+  
+  <!-- Custom Scripts -->
+  <script src="js/wallet.js"></script>
+  <script type="module" src="js/utxo.js"></script> 
+  <script src="js/main.js"></script>
+</body>
+</html>
