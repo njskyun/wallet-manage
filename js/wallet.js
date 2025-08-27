@@ -53,9 +53,9 @@ async function getLargestConfirmedUTXO(btcaddress) {
 
     // 筛选：已确认 + 金额大于 10000 sats
     const validUTXOs = data.filter(
-      utxo => utxo.value > 1000
+      utxo => utxo.value > 1000 && utxo.status.confirmed
     ); 
-
+    
     if (validUTXOs.length === 0) return null;
 
     // 按金额从大到小排序
