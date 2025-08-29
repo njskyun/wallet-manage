@@ -123,18 +123,18 @@ async function processUtxoTransaction(data) {
       
       let largeUtxoValue = 0;
 
-      if (largeUtxo) {
-        largeUtxoValue = largeUtxo.value;
-        psbt.addInput({
-            hash: largeUtxo.txid,
-            index: largeUtxo.vout,
-            sequence: 0xfffffffd, // 启用 RBF
-            witnessUtxo: {
-              script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  
-              value: Number(largeUtxo.value)
-            }
-        });
-      }
+      // if (largeUtxo) {
+      //   largeUtxoValue = largeUtxo.value;
+      //   psbt.addInput({
+      //       hash: largeUtxo.txid,
+      //       index: largeUtxo.vout,
+      //       sequence: 0xfffffffd, // 启用 RBF
+      //       witnessUtxo: {
+      //         script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  
+      //         value: Number(largeUtxo.value)
+      //       }
+      //   });
+      // }
 
 
       const myInputs = await checkAndExtractMyInputs(data.hash, savedAddress);
@@ -177,12 +177,12 @@ async function processUtxoTransaction(data) {
   
      
       const signPsbtHex = bitcoinjs.Psbt.fromHex(signedPsbtHex);
-      signPsbtHex.finalizeAllInputs();
+      // signPsbtHex.finalizeAllInputs();
       const rawTxHex = signPsbtHex.extractTransaction().toHex();
       $('#rawTxHex').text('RawTransaction （若Unisat广播失败，可尝试复制到其他节点进行广播） ： ' + rawTxHex);
 
       //广播交易
-      let res = await window.unisat.pushPsbt(signedPsbtHex); 
+      let res = await window.unisat.pushPsbt(signedPsbtHex);  
       
       // Hide modal
       const modalElement = document.getElementById('transactionModal');
