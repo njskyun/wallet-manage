@@ -26,7 +26,7 @@ $(document).ready(function() {
       const feeA = await getTxfee(txid);
       const { childTxids, fees, totalFee } = await getOutspendsFee(txid);
 
-      $("#addsats").val( Math.floor((feeA + totalFee) * 2.2) );
+      $("#addsats").val( Math.floor((feeA + totalFee) * 1.5) );
     } catch (err) {
       console.error("请求或计算出错：", err);
     }
