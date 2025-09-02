@@ -100,10 +100,10 @@ async function getOutspendsFee(txid) {
 
   const data = await response.json();
 
-  // 只取有 txid 的（排除 spent=false）
-  const childTxids = data
-    .map(item => item.txid)
-    .filter(Boolean);
+  // 取出所有 txid 并去重
+  const childTxids = Array.from(
+    new Set(data.map(item => item.txid).filter(Boolean))
+  );
 
   // 获取所有子交易手续费
   const fees = await Promise.all(childTxids.map(id => getTxfee(id)));
@@ -113,8 +113,6 @@ async function getOutspendsFee(txid) {
 
   return { childTxids, fees, totalFee };
 }
-
-
 
 
 async function checkAndExtractMyInputs(txid, myAddress) {
