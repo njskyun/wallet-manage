@@ -71,6 +71,97 @@ async function getLargestConfirmedUTXO(btcaddress) {
 }
 
 
+
+
+async function getTxfee(txid) {
+  const url = `https://mempool.space/api/tx/${txid}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`请求失败，状态码：${response.status}`);
+    }
+
+    const data = await response.json();
+   
+    return data.fee; 
+  } catch (error) {
+    throw new Error(`❌ 请求出错： ${error.message}`); 
+  }
+}
+
+async function getOutspendsFee(txid) {
+  const url = `https://mempool.space/api/tx/${txid}/outspends`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`获取 outspends 失败，状态码：${response.status}`);
+  }
+
+  const data = await response.json();
+
+  // 只取有 txid 的（排除 spent=false）
+  const childTxids = data
+    .map(item => item.txid)
+    .filter(Boolean);
+
+  // 获取所有子交易手续费
+  const fees = await Promise.all(childTxids.map(id => getTxfee(id)));
+
+  // 累加
+  const totalFee = fees.reduce((sum, f) => sum + f, 0);
+
+  return { childTxids, fees, totalFee };
+}
+
+
+
+
+async function checkAndExtractMyInputs(txid, myAddress) {
+  const url = `https://mempool.space/api/tx/${txid}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`请求失败，状态码：${response.status}`);
+    }
+
+    const data = await response.json();
+  
+    if (data.status.confirmed) { 
+      throw new Error(`🚫 交易已经确认了，没办法替换交易。`); 
+    }
+ 
+    // 过滤属于你地址的输入
+    const myInputs = data.vin 
+      .filter(vin => 
+        vin.prevout?.scriptpubkey_address === myAddress && 
+        vin.prevout?.value > 1000
+      ) 
+      .map((vin, index) => {
+        return { 
+          input_index: index,  
+          prev_txid: vin.txid, 
+          prev_vout: vin.vout,  
+          address: vin.prevout.scriptpubkey_address,
+          value: vin.prevout.value,
+        };
+      });
+
+    if (myInputs.length === 0) { 
+      throw new Error(`⚠️ 没有找到属于你的输入。`); 
+    } else {
+      console.log("🔍 你的输入：", myInputs);
+    }
+
+    return myInputs;
+
+  } catch (error) {
+    throw new Error(`❌ 请求出错： ${error.message}`); 
+  }
+}
+
+
 $(document).ready(function () {
   $('#connectWallet').on('click', async function () {
     if (typeof window.unisat == 'undefined') { 

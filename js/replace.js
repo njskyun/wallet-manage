@@ -1,57 +1,9 @@
 import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
 
 const savedAddress = localStorage.getItem('btcWalletAddress');
-
-let fee = 0;
-
-async function checkAndExtractMyInputs(txid, myAddress) {
-  const url = `https://mempool.space/api/tx/${txid}`;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`请求失败，状态码：${response.status}`);
-    }
-
-    const data = await response.json();
-    fee = data.fee;
  
-
-    if (data.status.confirmed) { 
-      throw new Error(`🚫 交易已经确认了，没办法替换交易。`); 
-    }
- 
-    // 过滤属于你地址的输入
-    const myInputs = data.vin 
-      .filter(vin => 
-        vin.prevout?.scriptpubkey_address === myAddress && 
-        vin.prevout?.value > 1000
-      ) 
-      .map((vin, index) => {
-        return { 
-          input_index: index,  
-          prev_txid: vin.txid, 
-          prev_vout: vin.vout,  
-          address: vin.prevout.scriptpubkey_address,
-          value: vin.prevout.value,
-        };
-      });
-
-    if (myInputs.length === 0) { 
-      throw new Error(`⚠️ 没有找到属于你的输入。`); 
-    } else {
-      console.log("🔍 你的输入：", myInputs);
-    }
-
-    return myInputs;
-
-  } catch (error) {
-    throw new Error(`❌ 请求出错： ${error.message}`); 
-  }
-}
-
-
 $(document).ready(function() { 
+  
   $('#taddr').val(savedAddress);
 
   (async function populateUtxoSelect() {
@@ -64,6 +16,21 @@ $(document).ready(function() {
     if (!savedAddress) return;  
   })();
   
+
+
+  document.getElementById("hash").addEventListener("input", async function (e) {
+    const txid = e.target.value.trim();
+    if (!txid) return;
+
+    try {
+      const feeA = await getTxfee(txid);
+      const { childTxids, fees, totalFee } = await getOutspendsFee(txid);
+
+      $("#addsats").val( Math.floor((feeA + totalFee) * 2.2) );
+    } catch (err) {
+      console.error("请求或计算出错：", err);
+    }
+  });
 
 
   // UTXO form submission
@@ -153,10 +120,8 @@ async function processUtxoTransaction(data) {
       } 
        
       const totalInputValue = myInputs.reduce((sum, u) => sum + u.value, 0);
-
-      console.log('pre_fee: ' + fee);
-
-      const totalFee = fee + data.addsats;
+ 
+      const totalFee =  data.addsats;
       const tomoney = totalInputValue + largeUtxoValue - totalFee;
       
       if (tomoney < 0) {
@@ -179,7 +144,7 @@ async function processUtxoTransaction(data) {
       const signPsbtHex = bitcoinjs.Psbt.fromHex(signedPsbtHex);
       // signPsbtHex.finalizeAllInputs();
       const rawTxHex = signPsbtHex.extractTransaction().toHex();
-      $('#rawTxHex').text('RawTransaction （若Unisat广播失败，可复制到广播交易站点尝试） ： ' + rawTxHex);
+      $('#rawTxHex').val(rawTxHex);
 
       //广播交易
       let res = await window.unisat.pushPsbt(signedPsbtHex);  

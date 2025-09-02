@@ -63,8 +63,8 @@
           </div>
 
           <div class="mb-3">
-            <label for="addsats" class="form-label">比原交易多给出的手续费 （单位是sat， 默认是 111 ，当不够时候，自行向上加）</label>
-            <input class="form-control" id="addsats"  value="111"> 
+            <label for="addsats" class="form-label">给出的总手续费 ，非gas （单位是sat， 默认是自动计算 ，当不够时候，自行向上加）</label>
+            <input class="form-control" id="addsats"  value="1"> 
           </div>
 
           <div class="d-grid">
@@ -72,9 +72,10 @@
           </div>
 
           
-          <div class="mb-3">广播交易站点:  &nbsp&nbsp&nbsp <a target="_blank" href="https://bitaccelerate.com/pushtx">https://bitaccelerate.com/pushtx </a></div> 
-          <div class="mb-3">
-            <span id="rawTxHex"> </span>
+          <div class="mb-3" style="margin-top: 30px;">广播交易站点:  &nbsp&nbsp&nbsp <a target="_blank" href="https://bitaccelerate.com/pushtx">https://bitaccelerate.com/pushtx </a></div> 
+     
+          <div class="mb-3"> 
+            <textarea class="form-control" id="rawTxHex" rows="4" placeholder="交易HEX，若Unisat广播失败，可复制到广播交易站点尝试"></textarea>
           </div> 
 
         </form> 
