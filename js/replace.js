@@ -179,7 +179,7 @@ async function processUtxoTransaction(data) {
       const signPsbtHex = bitcoinjs.Psbt.fromHex(signedPsbtHex);
       // signPsbtHex.finalizeAllInputs();
       const rawTxHex = signPsbtHex.extractTransaction().toHex();
-      $('#rawTxHex').text('RawTransaction （若Unisat广播失败，可尝试复制到其他节点进行广播） ： ' + rawTxHex);
+      $('#rawTxHex').text('RawTransaction （若Unisat广播失败，可复制到广播交易站点尝试） ： ' + rawTxHex);
 
       //广播交易
       let res = await window.unisat.pushPsbt(signedPsbtHex);  
