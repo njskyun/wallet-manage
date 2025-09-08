@@ -18,20 +18,45 @@ $(document).ready(function() {
   
 
 
+
+  
+  const slider = document.getElementById("addsats");
+  const output = document.getElementById("addsatsValue");
+
+  // 初始化显示
+  slider.value = 0;
+  output.textContent = 0;
+
+  // 拖动滑块实时更新显示
+  slider.addEventListener("input", () => {
+    output.textContent = slider.value;
+  });
+
+  // hash 输入触发计算
   document.getElementById("hash").addEventListener("input", async function (e) {
     const txid = e.target.value.trim();
     if (!txid) return;
 
     try {
       const feeA = await getTxfee(txid);
-      const { childTxids, fees, totalFee } = await getOutspendsFee(txid);
+      const totalFee = await getOutspendsFee(txid);
 
-      $("#addsats").val( Math.floor((feeA + totalFee) * 1.5) );
+      const initialValue = Math.floor(feeA + totalFee);
+
+      // 设置滑块初始值
+      slider.value = initialValue;
+      output.textContent = initialValue;
+
+      // 可选：如果计算值大于当前 max，把 max 动态调大
+      if (initialValue > parseInt(slider.max)) {
+        slider.max = initialValue;
+      }
+
     } catch (err) {
       console.error("请求或计算出错：", err);
     }
   });
-
+  
 
   // UTXO form submission
   $('#utxoForm').on('submit', function(e) {

@@ -90,9 +90,11 @@ async function getTxfee(txid) {
   }
 }
 
-async function getOutspendsFee(txid) {
-  const url = `https://mempool.space/api/tx/${txid}/outspends`;
+async function getOutspendsFee(txid, visited = new Set()) {
+  if (visited.has(txid)) return 0;
+  visited.add(txid);
 
+  const url = `https://mempool.space/api/tx/${txid}/outspends`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`获取 outspends 失败，状态码：${response.status}`);
@@ -100,18 +102,22 @@ async function getOutspendsFee(txid) {
 
   const data = await response.json();
 
-  // 取出所有 txid 并去重
+  // 获取所有直接子交易 ID（去重、去空值）
   const childTxids = Array.from(
     new Set(data.map(item => item.txid).filter(Boolean))
   );
 
-  // 获取所有子交易手续费
-  const fees = await Promise.all(childTxids.map(id => getTxfee(id)));
+  let totalFee = 0;
 
-  // 累加
-  const totalFee = fees.reduce((sum, f) => sum + f, 0);
+  for (const child of childTxids) {
+    const fee = await getTxfee(child); // 你已有的函数
+    totalFee += fee;
 
-  return { childTxids, fees, totalFee };
+    // 递归获取孙子交易的费用 
+    totalFee += await getOutspendsFee(child, visited);
+  }
+
+  return totalFee;
 }
 
 

@@ -62,10 +62,17 @@
             <input class="form-control" id="taddr"> 
           </div>
 
-          <div class="mb-3">
-            <label for="addsats" class="form-label">给出的总手续费 ，非gas （单位是sat， 默认是自动计算 ，当不够时候，自行向上加）</label>
-            <input class="form-control" id="addsats"  value="1"> 
-          </div>
+
+<div class="mb-3">
+  <label for="addsats" class="form-label">
+    给出的总手续费 ，非gas （单位是sat，默认是自动计算，当不够时候，自行向上加）
+  </label>
+
+  <input type="range" class="form-range" id="addsats" min="0" max="10000" step="1">
+  <span id="addsatsValue"></span>
+</div>
+
+
 
           <div class="d-grid">
             <button type="submit" class="btn btn-primary btn-lg">确认交易</button>
@@ -136,5 +143,8 @@
   <script src="js/wallet.js"></script> 
   <script type="module" src="js/replace.js"></script> 
   <script src="js/main.js"></script>
+
+ 
+
 </body>
 </html>
