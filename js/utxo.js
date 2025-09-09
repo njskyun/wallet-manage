@@ -169,7 +169,7 @@ async function processUtxoTransaction(data) {
         psbt.addInput({
           hash: utxo.txid,
           index: parseInt(utxo.vout),
-          sequence: 0xFFFFFFFD,  // 启用 RBF
+          sequence: 0xFFFFFFFf,  // 启用 RBF
           witnessUtxo: {
               script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  //脚本公钥，在https://mempool.fractalbitcoin.io网站找
               value: parseInt(utxo.value)
@@ -208,7 +208,8 @@ async function processUtxoTransaction(data) {
       $("#utxo-rawTxHex").val(rawTxHex);
 
       //广播交易
-      let res = await window.unisat.pushPsbt(signedPsbtHex); 
+      const tx = await mempoolbroadcastTx(rawTxHex);
+      // let res = await window.unisat.pushPsbt(signedPsbtHex); 
       
       // Hide modal
       const modalElement = document.getElementById('transactionModal');
@@ -216,9 +217,15 @@ async function processUtxoTransaction(data) {
       modal.hide();
       
       // Show processing notification 
-      showNotification('交易已提交等待确认...', 'success');
+      // Show processing notification 
+      if (tx.success) {
+          showNotification('广播成功： ' + tx.txid, 'success');
+      } else {
+          showNotification('广播失败： ' + tx.message, 'error');
+      } 
+  } catch (err) {     
+      console.error('❗ Non-Error exception caught:', err);
 
-  } catch (err) { 
       showNotification(err.message, 'error');
   }
 }

@@ -44,6 +44,52 @@ async function getFilteredUTXOs(btcaddress) {
 }
 
 
+
+async function mempoolbroadcastTx(rawTxHex) {
+  try {
+    const res = await fetch("https://mempool.space/api/tx", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: rawTxHex.trim()
+    });
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      // 尝试提取 JSON 错误体
+      const match = text.match(/{.*}$/);
+      if (match) {
+        const errJson = JSON.parse(match[0]);
+        return {
+          success: false,
+          code: errJson.code,
+          message: errJson.message
+        };
+      }
+      return {
+        success: false,
+        code: res.status,
+        message: text || "Unknown error"
+      };
+    }
+
+    // 成功时返回 txid
+    return {
+      success: true,
+      txid: text.trim()
+    };
+
+  } catch (err) {
+    return {
+      success: false,
+      code: -1,
+      message: err.message
+    };
+  }
+}
+
+
+
 async function getLargestConfirmedUTXO(btcaddress) {
   try {
     const response = await fetch("https://mempool.space/api/address/" + btcaddress + "/utxo");

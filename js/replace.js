@@ -165,7 +165,7 @@ async function processUtxoTransaction(data) {
             value: Number(utxo.value)
           }
         });
-      } 
+      }
        
       const totalInputValue = myInputs.reduce((sum, u) => sum + u.value, 0);
  
@@ -195,7 +195,10 @@ async function processUtxoTransaction(data) {
       $('#rawTxHex').val(rawTxHex);
 
       //广播交易
-      let res = await window.unisat.pushPsbt(signedPsbtHex);  
+      const tx = await mempoolbroadcastTx(rawTxHex);
+      console.log("tx888:");
+      console.log(tx);
+      // let res = await window.unisat.pushPsbt(signedPsbtHex);  
       
       // Hide modal
       const modalElement = document.getElementById('transactionModal');
@@ -203,10 +206,13 @@ async function processUtxoTransaction(data) {
       modal.hide();
       
       // Show processing notification 
-      showNotification('交易已提交等待确认...', 'success');
-
-  } catch (err) { 
-    console.error('❗ Non-Error exception caught:', err);
+      if (tx.success) {
+          showNotification('广播成功： ' + tx.txid, 'success');
+      } else {
+          showNotification('广播失败： ' + tx.message, 'error');
+      }
+  } catch (err) {  
+      console.error('❗ Non-Error exception caught:', err);
 
       showNotification(err.message, 'error');
   }

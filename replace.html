@@ -125,12 +125,12 @@
 
           <div class="mb-3">
             <label for="addsats" class="form-label">
-              交易总手续费
+              矿工费用
 
               <i class="bi bi-question-circle text-muted" 
                 data-bs-toggle="tooltip" 
                 data-bs-placement="right" 
-                title="给的是总手续费，非gas费率，单位是sat">
+                title="">
               </i> 
             </label>
  
@@ -140,21 +140,10 @@
             
             <div>总交易费用: <span id="addsatsValue">0</span> sat</div> 
           </div>
- 
-
+  
           <div class="d-grid">
             <button type="submit" class="btn btn-primary btn-lg">确认交易</button>
-          </div>
-
-          
-          <div class="mb-3" style="margin-top: 30px;">广播交易站点:  &nbsp&nbsp&nbsp 
-            <a target="_blank" href="https://bitaccelerate.com/pushtx">https://bitaccelerate.com/pushtx </a> , 
-            <a target="_blank" href="https://mempool.space/zh/tx/push">https://mempool.space/zh/tx/push </a> 
           </div> 
-     
-          <div class="mb-3"> 
-            <textarea class="form-control" id="rawTxHex" rows="4" placeholder="交易HEX，若Unisat广播失败，可复制到广播交易站点尝试"></textarea>
-          </div>
         </form>
       </div> 
     </div> 
@@ -208,7 +197,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@zhigang1992/bitcoinjs-lib-browser@6.0.0/bitcoinjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-message@2.2.0/index.min.js"></script>
   <script src="https://mempool.space/mempool.js"></script>
-
+ 
   
   <!-- Custom Scripts -->
   <script src="js/wallet.js"></script> 
