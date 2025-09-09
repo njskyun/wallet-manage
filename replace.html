@@ -10,6 +10,59 @@
   <link rel="stylesheet" href="css/styles.css">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ 
+   <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+.text-muted  {
+  --bs-text-opacity: 1;   color: rgb(255 221 41 / 75%) !important;
+} 
+ 
+.custom-range {
+  height: 12px;
+  -webkit-appearance: none;
+  width: 100%;
+  background: #ffffff;       /* 默认白色轨道 */
+  border-radius: 6px;
+  outline: none;
+}
+
+/* Webkit 浏览器轨道 */
+.custom-range::-webkit-slider-runnable-track {
+  height: 12px;
+  background: linear-gradient(to right, #ffc107 var(--val, 0%), #ffffff var(--val, 0%));
+  border-radius: 6px;
+}
+.custom-range::-moz-range-track {
+  height: 12px;
+  background: #ffffff;
+  border-radius: 6px;
+}
+
+/* 滑块按钮 */
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #ffc107;       /* 黄色按钮 */
+  border: 2px solid #fff3cd;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -4px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+}
+.custom-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #ffc107;
+  border: 2px solid #fff3cd;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+}
+</style>
+
 </head>
 <body>
   <!-- Header & Navigation -->
@@ -54,25 +107,40 @@
         <h2>替换/取消 交易</h2>
         <form id="utxoForm" class="mt-4"> 
           <div class="mb-3">
-            <label for="hash" class="form-label">交易Hash</label>
+            <label for="hash" class="form-label">需替换的交易Hash</label>
             <input type="text" class="form-control" id="hash"  placeholder="要替换的交易 ？">
           </div>
           <div class="mb-3">
-            <label for="taddr" class="form-label">新的目标地址（因替换交易需生成一笔新交易，所以填写转给谁，默认是自己的钱包地址）</label>
+            <label for="taddr" class="form-label">新的目标地址 
+              <i class="bi bi-question-circle text-muted" 
+                data-bs-toggle="tooltip" 
+                data-bs-placement="right" 
+                title="因 替换/取消 交易需生成一笔新交易">
+              </i>
+
+            </label>
             <input class="form-control" id="taddr"> 
           </div>
 
 
-<div class="mb-3">
-  <label for="addsats" class="form-label">
-    给出的总手续费 ，非gas （单位是sat，默认是自动计算，当不够时候，自行向上加）
-  </label>
+          <div class="mb-3">
+            <label for="addsats" class="form-label">
+              交易总手续费
 
-  <input type="range" class="form-range" id="addsats" min="0" max="10000" step="1">
-  <span id="addsatsValue"></span>
-</div>
+              <i class="bi bi-question-circle text-muted" 
+                data-bs-toggle="tooltip" 
+                data-bs-placement="right" 
+                title="给的是总手续费，非gas费率，单位是sat">
+              </i> 
+            </label>
+ 
+            <input type="range" class="form-range custom-range" id="addsats" min="0" max="10000" step="1">
 
-
+            <div>当前费率: <span id="feerateDisplay">0</span> sat/vB</div>
+            
+            <div>总交易费用: <span id="addsatsValue">0</span> sat</div> 
+          </div>
+ 
 
           <div class="d-grid">
             <button type="submit" class="btn btn-primary btn-lg">确认交易</button>
@@ -143,8 +211,15 @@
   <script src="js/wallet.js"></script> 
   <script type="module" src="js/replace.js"></script> 
   <script src="js/main.js"></script>
+<script>
+  // 启用所有 tooltip
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+  }) 
+</script>
+
 
  
-
 </body>
 </html>

@@ -2,6 +2,8 @@ import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
 
 const savedAddress = localStorage.getItem('btcWalletAddress');
  
+var txVsize = 0;
+
 $(document).ready(function() { 
   
   $('#taddr').val(savedAddress);
@@ -17,46 +19,71 @@ $(document).ready(function() {
   })();
   
 
-
-
-  
   const slider = document.getElementById("addsats");
-  const output = document.getElementById("addsatsValue");
-
-  // 初始化显示
-  slider.value = 0;
-  output.textContent = 0;
-
+  const output = document.getElementById("addsatsValue"); 
   // 拖动滑块实时更新显示
   slider.addEventListener("input", () => {
     output.textContent = slider.value;
-  });
-
+  }); 
   // hash 输入触发计算
   document.getElementById("hash").addEventListener("input", async function (e) {
     const txid = e.target.value.trim();
     if (!txid) return;
 
     try {
+      const chosenUtxos = await checkAndExtractMyInputs($(this).val().trim(), savedAddress); 
+      txVsize = gettxVsize(chosenUtxos);
+
       const feeA = await getTxfee(txid);
       const totalFee = await getOutspendsFee(txid);
 
-      const initialValue = Math.floor(feeA + totalFee);
+      const minValue = Math.floor(feeA + totalFee);
 
-      // 设置滑块初始值
-      slider.value = initialValue;
-      output.textContent = initialValue;
+      // 滑块从 minValue 开始
+      slider.min = minValue;
 
-      // 可选：如果计算值大于当前 max，把 max 动态调大
-      if (initialValue > parseInt(slider.max)) {
-        slider.max = initialValue;
-      }
+      // 设置最大值（比如 minValue + 10000，或者更灵活）
+      slider.max = minValue + 10000;
 
-    } catch (err) {
-      console.error("请求或计算出错：", err);
+      // 默认值就是 minValue
+      slider.value = minValue;
+      output.textContent = minValue;
+      slider.dispatchEvent(new Event('input'));
+      updateRangeBg(slider); 
+ 
+    } catch (err) { 
+        showNotification(err.message, 'error');
+        return;
     }
   });
-  
+ 
+   
+  // 假设交易 vsize 
+
+  function updateRangeBg(el) {
+    const val = (el.value - el.min) / (el.max - el.min) * 100;
+    el.style.setProperty("--val", val + "%");
+  }
+
+  // 滑块滑动事件
+  slider.addEventListener("input", (e) => {
+    updateRangeBg(e.target);
+    const totalFee = Number(e.target.value);
+    
+    // 计算费率
+    let feeRate = 0;
+    if (txVsize != 0) {
+      feeRate = totalFee / txVsize;
+    }  
+    
+    $('#feerateDisplay').text(feeRate.toFixed(2));
+
+  });
+
+  // 初始化
+  updateRangeBg(slider); 
+  feerateDisplay.textContent = (slider.value / txVsize).toFixed(2);
+
 
   // UTXO form submission
   $('#utxoForm').on('submit', function(e) {
@@ -97,8 +124,8 @@ function showTransactionModal(type, data) {
   
   // Show the modal
   const transactionModal = new bootstrap.Modal(document.getElementById('transactionModal'));
-
   
+  // Set transaction details
   $("#confirmaddr").text(data.targetAddresses);
   transactionModal.show();
 }

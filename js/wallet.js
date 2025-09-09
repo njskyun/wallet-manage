@@ -153,15 +153,14 @@ async function checkAndExtractMyInputs(txid, myAddress) {
       });
 
     if (myInputs.length === 0) { 
-      throw new Error(`⚠️ 没有找到属于你的输入。`); 
+      throw new Error(`不是您的交易，请更换钱包。`); 
     } else {
       console.log("🔍 你的输入：", myInputs);
     }
 
-    return myInputs;
-
+    return myInputs; 
   } catch (error) {
-    throw new Error(`❌ 请求出错： ${error.message}`); 
+    throw new Error(`❌ 出错： ${error.message}`); 
   }
 }
 
@@ -365,7 +364,20 @@ function selectUtxosWithChange(
   return [];
 }
 
+function gettxVsize(chosenUtxos, outnum = 1, opReturnSize = 0, changeCount = 1) {
+  const headerSize = 10.5;   // 版本、marker/flag、nIn、nOut、locktime
+  const inputSize  = 57.5;     // P2TR 输入约 57.5 vB 向上取整
+  const payOutSize = 43;     // P2TR 支付或找零输出
 
+  //计算交易虚拟字节大小 (vsize)
+  const txSize = headerSize
+    + chosenUtxos.length * inputSize
+    + outnum * payOutSize
+    + opReturnSize
+    + changeCount * payOutSize;
+
+  return Math.ceil(txSize);
+}
 
 /**
  * 计算在选定 UTXO、支付 & OP_RETURN 输出后，交易产生的找零金额
@@ -386,21 +398,13 @@ function calculateChange(
   dustLimit = 330,
   changeCount = 1
 ) {
-  // 常量估算值
-  const headerSize = 10.5;   // 版本、marker/flag、nIn、nOut、locktime
-  const inputSize  = 57.5;     // P2TR 输入约 57.5 vB 向上取整
-  const payOutSize = 43;     // P2TR 支付或找零输出
-
+ 
   // 1. 累加所有选中 UTXO 的总值
   const totalInputValue = chosenUtxos.reduce((sum, u) => sum + u.value, 0);
  
  
   // 3. 计算交易虚拟字节大小 (vsize)
-  const txSize = headerSize
-               + chosenUtxos.length * inputSize
-               + outnum * payOutSize
-               + opReturnSize
-               + changeCount * payOutSize;
+  const txSize = gettxVsize(chosenUtxos, outnum, opReturnSize, changeCount)
 
   // 4. 动态手续费
   const feeSat = Math.ceil(txSize * feeRate);
