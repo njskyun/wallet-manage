@@ -57,9 +57,7 @@ $(document).ready(function() {
     }
   });
  
-   
-  // 假设交易 vsize 
-
+ 
   function updateRangeBg(el) {
     const val = (el.value - el.min) / (el.max - el.min) * 100;
     el.style.setProperty("--val", val + "%");
@@ -136,8 +134,6 @@ async function processUtxoTransaction(data) {
 
   try {   
       const largeUtxo = await getLargestConfirmedUTXO(savedAddress);
-      console.log('largeUtxo');
-      console.log(largeUtxo);
 
       
       let largeUtxoValue = 0;
@@ -215,57 +211,4 @@ async function processUtxoTransaction(data) {
       showNotification(err.message, 'error');
   }
 }
-
-// Add some CSS for the transaction modal
-$(document).ready(function() {
-  $('<style>')
-    .text(`
-      .transaction-detail-item {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      
-      .transaction-detail-item .label {
-        color: var(--text-secondary);
-        font-weight: 500;
-      }
-      
-      .transaction-detail-item .value {
-        font-weight: 600;
-        font-family: monospace;
-      }
-      
-      .address-list {
-        max-height: 150px;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        padding: 10px;
-      }
-      
-      .address-item {
-        display: flex;
-        margin-bottom: 5px;
-        font-family: monospace;
-        font-size: 0.9rem;
-      }
-      
-      .address-number {
-        color: var(--accent-color);
-        margin-right: 10px;
-        min-width: 20px;
-      }
-      
-      .warning {
-        color: var(--warning-color);
-        font-size: 0.9rem;
-        padding: 10px;
-        background: rgba(255, 193, 7, 0.1);
-        border-radius: 4px;
-      }
-    `)
-    .appendTo('head');
-});
+ 
