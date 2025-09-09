@@ -159,7 +159,7 @@ async function processUtxoTransaction(data) {
         psbt.addInput({
           hash: utxo.prev_txid,
           index: utxo.prev_vout,
-          sequence: 0xfffffffd, // 启用 RBF
+          sequence: 0xffffffff, // 启用 RBF
           witnessUtxo: {
             script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  
             value: Number(utxo.value)
