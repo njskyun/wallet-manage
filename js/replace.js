@@ -113,8 +113,10 @@ $(document).ready(function() {
       addsats: addsats
     });
   });
-});
-  
+
+
+
+
 // Show transaction confirmation modal
 function showTransactionModal(type, data) { 
   // Set up confirm button
@@ -216,7 +218,15 @@ async function processUtxoTransaction(data) {
               requiredFeeSat = Math.ceil(requiredFeeBTC * 1e8); // 转成 sat 
           }
 
-          showNotification( "请保证总交易费用于： "+ (originalfee + requiredFeeSat) + ' sat', 'error'); 
+          const minValue = originalfee + requiredFeeSat
+          showNotification( "请保证总交易费用于： "+ minValue + ' sat', 'error'); 
+
+          const addsats = document.getElementById("addsats");
+          const addsatsValue = document.getElementById("addsatsValue"); 
+          addsats.value = minValue;
+          addsatsValue.textContent = minValue;
+          addsats.dispatchEvent(new Event('input'));
+          updateRangeBg(addsats);   
       }
   } catch (err) {  
       console.error('❗ Non-Error exception caught:', err);
@@ -225,3 +235,6 @@ async function processUtxoTransaction(data) {
   }
 }
  
+
+});
+  
