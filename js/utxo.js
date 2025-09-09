@@ -169,7 +169,7 @@ async function processUtxoTransaction(data) {
         psbt.addInput({
           hash: utxo.txid,
           index: parseInt(utxo.vout),
-          sequence: 0xFFFFFFFf,  // 启用 RBF
+          sequence: 0xfffffffd,  // 启用 RBF
           witnessUtxo: {
               script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  //脚本公钥，在https://mempool.fractalbitcoin.io网站找
               value: parseInt(utxo.value)

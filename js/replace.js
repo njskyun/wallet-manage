@@ -159,7 +159,7 @@ async function processUtxoTransaction(data) {
         psbt.addInput({
           hash: utxo.prev_txid,
           index: utxo.prev_vout,
-          sequence: 0xffffffff, // 启用 RBF
+          sequence: 0xfffffffd, // 启用 RBF
           witnessUtxo: {
             script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  
             value: Number(utxo.value)
@@ -195,9 +195,7 @@ async function processUtxoTransaction(data) {
       $('#rawTxHex').val(rawTxHex);
 
       //广播交易
-      const tx = await mempoolbroadcastTx(rawTxHex);
-      console.log("tx888:");
-      console.log(tx);
+      const tx = await mempoolbroadcastTx(rawTxHex); 
       // let res = await window.unisat.pushPsbt(signedPsbtHex);  
       
       // Hide modal
