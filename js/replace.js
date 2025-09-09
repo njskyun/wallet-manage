@@ -3,6 +3,7 @@ import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
 const savedAddress = localStorage.getItem('btcWalletAddress');
  
 var txVsize = 0;
+var originalfee = 0;
 
 $(document).ready(function() { 
   
@@ -41,6 +42,7 @@ $(document).ready(function() {
 
       // 滑块从 minValue 开始
       slider.min = minValue;
+      originalfee = minValue
 
       // 设置最大值（比如 minValue + 10000，或者更灵活）
       slider.max = minValue + 10000;
@@ -206,8 +208,15 @@ async function processUtxoTransaction(data) {
       // Show processing notification 
       if (tx.success) {
           showNotification('广播成功： ' + tx.txid, 'success');
-      } else {
-          showNotification('广播失败： ' + tx.message, 'error');
+      } else { 
+          const match = tx.message.match(/< (\d+\.?\d*)$/);
+          let requiredFeeSat = 0;
+          if (match) {
+              const requiredFeeBTC = parseFloat(match[1]);
+              requiredFeeSat = Math.ceil(requiredFeeBTC * 1e8); // 转成 sat 
+          }
+
+          showNotification( "请保证总交易费用于： "+ (originalfee + requiredFeeSat) + ' sat', 'error'); 
       }
   } catch (err) {  
       console.error('❗ Non-Error exception caught:', err);
