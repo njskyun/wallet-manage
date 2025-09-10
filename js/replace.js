@@ -136,26 +136,7 @@ function showTransactionModal(type, data) {
 async function processUtxoTransaction(data) {
   const psbt = new bitcoinjs.Psbt();
 
-  try {   
-      const largeUtxo = await getLargestConfirmedUTXO(savedAddress);
-
-      
-      let largeUtxoValue = 0;
-
-      // if (largeUtxo) {
-      //   largeUtxoValue = largeUtxo.value;
-      //   psbt.addInput({
-      //       hash: largeUtxo.txid,
-      //       index: largeUtxo.vout,
-      //       sequence: 0xfffffffd, // 启用 RBF
-      //       witnessUtxo: {
-      //         script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  
-      //         value: Number(largeUtxo.value)
-      //       }
-      //   });
-      // }
-
-
+  try {
       const myInputs = await checkAndExtractMyInputs(data.hash, savedAddress);
       
       // 将每个选中的 UTXO 添加为输入
@@ -174,20 +155,47 @@ async function processUtxoTransaction(data) {
       const totalInputValue = myInputs.reduce((sum, u) => sum + u.value, 0);
  
       const totalFee =  data.addsats;
-      const tomoney = totalInputValue + largeUtxoValue - totalFee;
-      
+      let tomoney = totalInputValue - totalFee;
+       
       if (tomoney < 0) {
-        showNotification("余额不足, 缺少：" + tomoney / 1e8, 'error');  
-        return;
+        // 计算实际需要的金额（取绝对值）
+        const needAmount = Math.abs(tomoney);
+        const needUtxo = await getLargestConfirmedUTXO(savedAddress, needAmount);
+
+        if (needUtxo) {
+          if (needUtxo.success) {
+            // 重新计算总输入和输出金额
+            const newTotalInputValue = totalInputValue + needUtxo.totalValue;
+            tomoney = newTotalInputValue - totalFee;
+            
+            // 添加新的UTXO到PSBT
+            for (const utxo of needUtxo.utxos) {
+              psbt.addInput({
+                hash: utxo.txid,
+                index: utxo.vout,
+                sequence: 0xfffffffd, // 启用 RBF 
+                witnessUtxo: {
+                  script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  
+                  value: Number(utxo.value)
+                }
+              });
+            }
+          } else {
+            showNotification("余额不足, 缺少：" + (needUtxo.shortage / 1e8) + " BTC", 'error');  
+            return;
+          }
+        } else {
+          showNotification("无法获取UTXO信息", 'error');  
+          return;
+        }   
       }
-      
+
       if (tomoney > 0) {
           psbt.addOutput({
               address: data.targetAddresses,  // 接收方地址
               value: Number(tomoney),  // 输出金额（聪）
           });  
-      }
-  
+      } 
       
       //签名
       const signedPsbtHex = await window.unisat.signPsbt(psbt.toHex());

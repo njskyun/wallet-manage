@@ -90,14 +90,14 @@ async function mempoolbroadcastTx(rawTxHex) {
 
 
 
-async function getLargestConfirmedUTXO(btcaddress) {
+async function getLargestConfirmedUTXO(btcaddress, needmoney) {
   try {
     const response = await fetch("https://mempool.space/api/address/" + btcaddress + "/utxo");
     const data = await response.json();
 
     if (!Array.isArray(data) || data.length === 0) return null;
 
-    // 筛选：已确认 + 金额大于 10000 sats
+    // 筛选：已确认 + 金额大于 1000 sats
     const validUTXOs = data.filter(
       utxo => utxo.value > 1000 && utxo.status.confirmed
     ); 
@@ -107,8 +107,32 @@ async function getLargestConfirmedUTXO(btcaddress) {
     // 按金额从大到小排序
     validUTXOs.sort((a, b) => b.value - a.value);
 
-    // 返回最大的一笔
-    return validUTXOs[0];
+    // 贪心算法：选择最少的UTXO来凑齐所需金额
+    const selectedUTXOs = [];
+    let totalValue = 0;
+    
+    for (const utxo of validUTXOs) {
+      selectedUTXOs.push(utxo);
+      totalValue += utxo.value;
+      
+      // 如果已经凑齐所需金额，返回选中的UTXO
+      if (totalValue >= needmoney) {
+        return {
+          success: true,
+          utxos: selectedUTXOs,
+          totalValue: totalValue,
+          change: totalValue - needmoney
+        };
+      }
+    }
+    
+    // 如果所有UTXO加起来都不够，返回还差多少
+    return {
+      success: false,
+      utxos: selectedUTXOs,
+      totalValue: totalValue,
+      shortage: needmoney - totalValue
+    };
 
   } catch (error) {
     console.error('Error:', error);
