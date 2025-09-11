@@ -33,8 +33,8 @@ async function getFilteredUTXOs(btcaddress) {
     // Sort by value in descending order
     const sortedData = data.sort((a, b) => b.value - a.value);
  
-    // Filter out UTXOs with value less than 10000
-    const filteredData = sortedData.filter(utxo => utxo.value > 10000); 
+ 
+    const filteredData = sortedData.filter(utxo => utxo.value != 546 && utxo.value != 10000); 
 
     return filteredData ? filteredData : [];
   } catch (error) {
@@ -97,9 +97,9 @@ async function getLargestConfirmedUTXO(btcaddress, needmoney) {
 
     if (!Array.isArray(data) || data.length === 0) return null;
 
-    // 筛选：已确认 + 金额大于 1000 sats
+ 
     const validUTXOs = data.filter(
-      utxo => utxo.value > 1000 && utxo.status.confirmed
+      utxo => utxo.status.confirmed && utxo.value !== 546 && utxo.value !== 10000
     ); 
     
     if (validUTXOs.length === 0) return null;
@@ -210,7 +210,8 @@ async function checkAndExtractMyInputs(txid, myAddress) {
     const myInputs = data.vin 
       .filter(vin => 
         vin.prevout?.scriptpubkey_address === myAddress && 
-        vin.prevout?.value > 1000
+        vin.prevout?.value !== 546 &&
+        vin.prevout?.value !== 10000
       ) 
       .map((vin, index) => {
         return { 
