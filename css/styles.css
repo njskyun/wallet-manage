@@ -486,3 +486,85 @@ body {
   background-color: var(--warning-color);
   color: #212529;
 }
+
+.text-muted {
+  --bs-text-opacity: 1;
+  color: rgb(255 221 41 / 75%) !important;
+}
+
+.inscription-card {
+  background: var(--card-bg-light);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.inscription-card:hover {
+  background: var(--primary-light);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.inscription-id {
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--accent-color);
+  word-break: break-all;
+}
+
+.inscription-content {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mint-form {
+  background: var(--card-bg-light);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.tab-content {
+  margin-top: 1rem;
+}
+
+.nav-tabs .nav-link {
+  color: var(--text-light);
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  margin-right: 0.5rem;
+}
+
+.nav-tabs .nav-link:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--accent-color);
+  background: var(--card-bg-light);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--accent-color);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
