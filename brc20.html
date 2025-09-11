@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BRC20 铭文管理 - Bitcoin Wallet Manager</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+ 
+</head>
+<body>
+  <!-- Background Elements -->
+  <div class="bg-elements">
+    <div class="bg-circle circle-1"></div>
+    <div class="bg-circle circle-2"></div>
+    <div class="bg-circle circle-3"></div>
+  </div>
+
+  <!-- Header & Navigation -->
+  <header class="fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark">
+      <div class="container">
+        <a class="navbar-brand" href="#"><i class="fab fa-bitcoin me-2"></i>BTC Wallet Manager</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="./index.html">首页</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="./utxo.html">UTXO管理</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="./replace.html">替换交易</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="./brc20.html">BRC20铭文</a>
+            </li>
+          </ul>
+          <div class="d-flex wallet-section">
+            <button id="connectWallet" class="btn btn-outline-light"><i class="fas fa-wallet me-2"></i>连接BTC钱包</button>
+            <div id="walletInfo" class="wallet-info d-none">
+              <span class="wallet-label">钱包地址:</span>
+              <span id="walletAddress" class="wallet-address"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="container main-container">
+    <div class="content-card">
+      <h2><i class="fas fa-coins me-2"></i>序数管理</h2>
+      
+      <!-- Tabs Navigation -->
+      <ul class="nav nav-tabs" id="brc20Tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="inscriptions-tab" data-bs-toggle="tab" data-bs-target="#inscriptions" type="button" role="tab">
+            <i class="fas fa-list me-2"></i>我的序数
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="mint-tab" data-bs-toggle="tab" data-bs-target="#mint" type="button" role="tab">
+            <i class="fas fa-plus-circle me-2"></i>铸造铭文
+          </button>
+        </li>
+      </ul>
+
+      <!-- Tab Content -->
+      <div class="tab-content" id="brc20TabContent">
+        <!-- Inscriptions Tab -->
+        <div class="tab-pane fade show active" id="inscriptions" role="tabpanel">
+          <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4><i class="fas fa-coins me-2"></i>钱包中的铭文</h4>
+              <button id="refreshInscriptions" class="btn btn-outline-primary">
+                <i class="fas fa-sync-alt me-2"></i>刷新
+              </button>
+            </div>
+            
+            <div id="inscriptionsList" class="inscriptions-container">
+              <div class="text-center py-4">
+                <div class="loading-spinner me-2"></div>
+                <span class="text-muted">正在加载铭文数据...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mint Tab -->
+        <div class="tab-pane fade" id="mint" role="tabpanel">
+          <div class="mint-form">
+            <h4><i class="fas fa-plus-circle me-2"></i>铸造新铭文</h4>
+            <form id="mintForm" class="mt-4">
+              <div class="mb-3">
+                <label for="mintType" class="form-label">铭文类型</label>
+                <select class="form-control" id="mintType" required>
+                  <option value="">请选择铭文类型</option>
+                  <option value="text">文本铭文</option>
+                  <option value="image">图片铭文</option>
+                  <option value="json">JSON铭文</option>
+                  <option value="html">HTML铭文</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="mintContent" class="form-label">铭文内容</label>
+                <textarea class="form-control" id="mintContent" rows="6" placeholder="请输入铭文内容..." required></textarea>
+                <div class="form-text text-muted">
+                  <i class="bi bi-info-circle me-1"></i>
+                  支持文本、JSON、HTML等格式内容
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="mintFee" class="form-label">
+                  矿工费用
+                  <i class="bi bi-question-circle text-muted" 
+                    data-bs-toggle="tooltip" 
+                    data-bs-placement="right" 
+                    title="较高的费用可以加快交易确认速度">
+                  </i>
+                </label>
+                <input type="range" class="form-range custom-range" id="mintFee" min="1" max="50" step="1" value="10">
+                <div class="d-flex justify-content-between">
+                  <span>当前费率: <span id="mintFeeRate">10</span> sat/vB</span>
+                  <span>预估费用: <span id="mintFeeAmount">0</span> sat</span>
+                </div>
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">
+                  <i class="fas fa-hammer me-2"></i>铸造铭文
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Transaction Modal -->
+  <div class="modal fade" id="transactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="width:1050px">
+        <div class="modal-header">
+          <h5 class="modal-title">交易确认</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="transactionDetails">
+            <div class="transaction-preview">
+              <h3 class="mb-3">交易详情</h3>
+              <div class="transaction-detail-item">
+                <span class="label">交易类型: </span>
+                <span id="confirmType">铭文铸造</span>
+              </div>
+              <div class="transaction-detail-item">
+                <span class="label">铭文内容: </span>
+                <div id="confirmContent" class="inscription-content mt-2"></div>
+              </div>
+              <div class="transaction-detail-item">
+                <span class="label">预估费用: </span>
+                <span id="confirmFee">0</span> sat
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="confirmTransaction">确认铸造</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <p>&copy; 2025 Bitcoin 钱包管理工具 | <a href="#" class="text-light">使用条款</a> | <a href="#" class="text-light">隐私政策</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zhigang1992/bitcoinjs-lib-browser@6.0.0/bitcoinjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-message@2.2.0/index.min.js"></script>
+  <script src="https://mempool.space/mempool.js"></script>
+  
+  <!-- Custom Scripts -->
+  <script src="js/wallet.js"></script>
+  <script src="js/main.js"></script>
+  <script type="module" src="js/brc20.js"></script>
+
+  <script>
+    // 启用所有 tooltip
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+  </script>
+</body>
+</html>
