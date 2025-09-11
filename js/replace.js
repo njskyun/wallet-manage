@@ -45,7 +45,7 @@ $(document).ready(function() {
       originalfee = minValue
 
       // 设置最大值（比如 minValue + 10000，或者更灵活）
-      slider.max = minValue + 10000;
+      slider.max = minValue * 30;
 
       // 默认值就是 minValue
       slider.value = minValue;
