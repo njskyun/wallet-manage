@@ -8,8 +8,10 @@ class BRC20Manager {
 
   init() {
     this.setupEventListeners();
-    this.setupFeeSlider();
+    this.setupFeeInput();
+    this.setupMintCountSlider();
     this.loadWalletInfo();
+    this.fetchRecommendedFee();
   }
 
   setupEventListeners() {
@@ -29,50 +31,77 @@ class BRC20Manager {
       this.confirmMintTransaction();
     });
 
-    // 铭文类型变化
-    document.getElementById('mintType').addEventListener('change', (e) => {
-      this.updateContentPlaceholder(e.target.value);
+ 
+
+    // 标签页切换事件
+    document.getElementById('inscriptions-tab').addEventListener('click', () => {
+      this.loadInscriptions();
     });
   }
 
-  setupFeeSlider() {
-    const feeSlider = document.getElementById('mintFee');
-    const feeRateDisplay = document.getElementById('mintFeeRate');
-    const feeAmountDisplay = document.getElementById('mintFeeAmount');
-
-    feeSlider.addEventListener('input', (e) => {
-      const rate = e.target.value;
-      feeRateDisplay.textContent = rate;
+  setupFeeInput() {
+    const feeInput = document.getElementById('mintFee');
       
-      // 估算交易费用 (假设交易大小约250字节)
-      const estimatedSize = 250;
-      const feeAmount = rate * estimatedSize;
-      feeAmountDisplay.textContent = feeAmount;
-    });
+  }
+
+  setupMintCountSlider() {
+    const countSlider = document.getElementById('mintCount');
+    const countDisplay = document.getElementById('mintCountDisplay');
+
+    const updateSliderValue = (e) => {
+      const count = parseInt(e.target.value);
+      countDisplay.textContent = count;
+      
+      // 计算滑块位置百分比
+      const min = parseInt(countSlider.min);
+      const max = parseInt(countSlider.max);
+      const percentage = ((count - min) / (max - min)) * 100;
+      
+      // 更新显示位置
+      countDisplay.style.left = percentage + '%';
+      
+      // 更新滑块填充进度
+      countSlider.style.setProperty('--slider-progress', percentage + '%');
+    };
+
+    countSlider.addEventListener('input', updateSliderValue);
+    countSlider.addEventListener('change', updateSliderValue);
 
     // 初始化显示
-    feeRateDisplay.textContent = feeSlider.value;
-    feeAmountDisplay.textContent = feeSlider.value * 250;
+    updateSliderValue({ target: countSlider });
   }
 
-  updateContentPlaceholder(type) {
-    const contentTextarea = document.getElementById('mintContent');
-    const placeholders = {
-      'text': '请输入文本内容...',
-      'image': '请输入图片的base64编码或URL...',
-      'json': '{"name": "example", "description": "这是一个JSON铭文"}',
-      'html': '<html><body><h1>Hello World</h1></body></html>'
-    };
-    
-    contentTextarea.placeholder = placeholders[type] || '请输入铭文内容...';
+  async fetchRecommendedFee() {
+    try {
+      const response = await fetch('https://mempool.space/api/v1/fees/recommended');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.fastestFee) {
+        // 更新费用输入框的默认值
+        const feeInput = document.getElementById('mintFee');
+        feeInput.value = data.fastestFee;
+        
+        console.log(`已设置推荐费率: ${data.fastestFee} sat/vB`);
+      }
+      
+    } catch (error) {
+      console.error('获取推荐费率失败:', error);
+      // 如果获取失败，保持默认值10 sat/vB
+      console.log('使用默认费率: 10 sat/vB');
+    }
   }
-
+ 
   loadWalletInfo() {
     // 检查是否有已连接的钱包
     const walletAddress = localStorage.getItem('btcWalletAddress');
     if (walletAddress) {
       this.walletAddress = walletAddress;
-      this.loadInscriptions();
+      // 不再自动加载铭文数据，只有在点击"我的序数"标签时才加载
     } else {
       this.showNoWalletMessage();
     }
@@ -609,10 +638,8 @@ class BRC20Manager {
   }
 
   showMintConfirmation(type, content, feeRate) {
-    document.getElementById('confirmType').textContent = `${this.getTypeName(type)} 铭文铸造`;
     document.getElementById('confirmContent').innerHTML = this.formatContent(content, type);
-    document.getElementById('confirmFee').textContent = feeRate * 250;
-
+ 
     const modal = new bootstrap.Modal(document.getElementById('transactionModal'));
     modal.show();
   }
@@ -656,7 +683,7 @@ class BRC20Manager {
     try {
       const type = document.getElementById('mintType').value;
       const content = document.getElementById('mintContent').value;
-      const feeRate = parseInt(document.getElementById('mintFee').value);
+      const feeRate =  document.getElementById('mintFee').value;
       
       // 获取钱包私钥（实际应用中应该更安全地处理）
       const privateKey = localStorage.getItem('btcPrivateKey');
@@ -863,6 +890,6 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('walletConnected', function(event) {
   if (brc20Manager) {
     brc20Manager.walletAddress = event.detail.address;
-    brc20Manager.loadInscriptions();
+    // 不再自动加载铭文数据，只有在点击"我的序数"标签时才加载
   }
 });
