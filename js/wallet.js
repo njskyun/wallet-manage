@@ -498,7 +498,7 @@ function selectUtxosWithChange(utxos, paymentAmount, feeRate, opReturnSize = 0, 
  * @param {number} changeCount - 找零输出数量
  * @returns {number} 交易虚拟字节大小
  */
-function gettxVsize(chosenUtxos, outputCount = 1, opReturnSize = 0, changeCount = 1) {
+function gettxVsize(chosenUtxos, outputCount = 1, opReturnSize = 0, changeCount = 0) {
   const TRANSACTION_CONSTANTS = {
     headerSize: 10.5,    // 版本、marker/flag、nIn、nOut、locktime
     inputSize: 57.5,     // P2TR输入大小
@@ -532,7 +532,7 @@ function calculateChange(
   outputCount,
   opReturnSize = 0,
   dustLimit = 330,
-  changeCount = 1
+  changeCount = 0
 ) {
   // 计算总输入金额
   const totalInputValue = chosenUtxos.reduce((sum, utxo) => sum + utxo.value, 0);

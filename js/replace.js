@@ -80,7 +80,7 @@ function updateRangeBackground(element) {
  * 更新费率显示
  * @param {string} totalFee - 总费用
  */
-function updateFeeRate(totalFee) {
+function updateFeeRate(totalFee) { 
   let feeRate = 0;
   if (transactionVsize !== 0) {
     feeRate = Number(totalFee) / transactionVsize;
@@ -296,9 +296,25 @@ async function processReplaceTransaction(data) {
  */
 function addInputsToPsbt(psbt, inputs) {
   inputs.forEach(input => {
+    // 处理不同来源的输入对象
+    let txid, vout;
+    
+    if (input.prev_txid && input.prev_vout !== undefined) {
+      // 来自checkAndExtractMyInputs的对象
+      txid = input.prev_txid;
+      vout = input.prev_vout;
+    } else if (input.txid && input.vout !== undefined) {
+      // 来自getLargestConfirmedUTXO的对象
+      txid = input.txid;
+      vout = input.vout;
+    } else {
+      console.error('无效的输入对象:', input);
+      throw new Error('输入对象缺少必要的txid或vout字段');
+    }
+    
     psbt.addInput({
-      hash: input.prev_txid || input.txid,
-      index: input.prev_vout || input.vout,
+      hash: txid,
+      index: vout,
       sequence: 0xfffffffd, // 启用RBF
       witnessUtxo: {
         script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),
