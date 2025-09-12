@@ -83,7 +83,7 @@ function updateRangeBackground(element) {
 function updateFeeRate(totalFee) { 
   let feeRate = 0;
   if (transactionVsize !== 0) {
-    feeRate = Number(totalFee) / transactionVsize;
+    feeRate = safeParseFloat(totalFee) / transactionVsize;
   }
   
   $('#feerateDisplay').text(feeRate.toFixed(2));
@@ -159,7 +159,7 @@ function handleReplaceFormSubmit() {
   const formData = {
     hash: $('#hash').val().trim(),
     targetAddress: $('#taddr').val().trim(),
-    additionalSats: Math.ceil($('#addsats').val().trim())
+    additionalSats: safeParseInt($('#addsats').val().trim())
   };
   
   // 验证表单数据
@@ -231,7 +231,7 @@ function showTransactionModal(type, data) {
   });
   
   // 设置交易详情
-  $("#confirmaddr").text(data.targetAddresses);
+  $("#confirmaddr").text($('#feerateDisplay').text());
   
   // 显示模态框
   const transactionModal = new bootstrap.Modal(document.getElementById('transactionModal'));
@@ -338,7 +338,7 @@ async function getAdditionalUtxosIfNeeded(needAmount) {
   }
   
   if (!needUtxo.success) {
-    showNotification(`余额不足，缺少：${(needUtxo.shortage / 1e8).toFixed(8)} BTC`, 'error');
+    showNotification(`余额不足，缺少：${formatBtc(needUtxo.shortage)} BTC`, 'error');
     return null;
   }
   
@@ -384,8 +384,8 @@ function handleBroadcastFailure(result) {
   let requiredFeeSat = 0;
   
   if (feeMatch) {
-    const requiredFeeBTC = parseFloat(feeMatch[1]);
-    requiredFeeSat = Math.ceil(requiredFeeBTC * 1e8);
+    const requiredFeeBTC = safeParseFloat(feeMatch[1], 8);
+    requiredFeeSat = btcToSatoshis(requiredFeeBTC.toString());
   }
   
   const minValue = originalFee + requiredFeeSat;

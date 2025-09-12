@@ -25,7 +25,7 @@ async function initializeUtxoSelector() {
       // 填充UTXO选项
       utxoList.forEach(utxo => {
         const optionValue = `${utxo.txid}:${utxo.vout}:${utxo.value}`;
-        const optionText = `${utxo.txid}:${utxo.vout} --> ${(utxo.value / 1e8).toFixed(8)} BTC`;
+        const optionText = `${utxo.txid}:${utxo.vout} --> ${formatBtc(utxo.value)} BTC`;
         
         $('#utxoInput').append(
           $('<option>')
@@ -108,21 +108,28 @@ function validateUtxoFormData(formData) {
     };
   }
   
-  // 验证转账金额
-  const amount = parseFloat(transferAmount);
-  if (isNaN(amount) || amount <= 0) {
+  try {
+    // 验证转账金额
+    const amount = safeParseFloat(transferAmount, 8);
+    if (amount <= 0) {
+      return {
+        isValid: false,
+        message: '请输入有效的转账金额'
+      };
+    }
+    
+    // 验证费率
+    const rate = safeParseFloat(feeRate);
+    if (rate <= 0) {
+      return {
+        isValid: false,
+        message: '请输入有效的费率'
+      };
+    }
+  } catch (error) {
     return {
       isValid: false,
-      message: '请输入有效的转账金额'
-    };
-  }
-  
-  // 验证费率
-  const rate = parseFloat(feeRate);
-  if (isNaN(rate) || rate <= 0) {
-    return {
-      isValid: false,
-      message: '请输入有效的费率'
+      message: error.message
     };
   }
   
@@ -162,7 +169,7 @@ function showTransactionModal(type, data) {
  * @returns {string} HTML字符串
  */
 function buildUtxoTransactionDetails(data) {
-  const amount = parseFloat(data.transferAmount);
+  const amount = safeParseFloat(data.transferAmount, 8);
   const numAddresses = data.targetAddresses.length;
   const totalAmount = amount * numAddresses;
   
@@ -205,7 +212,7 @@ function buildUtxoTransactionDetails(data) {
 async function processUtxoTransaction(data) {
   try {
     // 转换金额为聪
-    const amountInSats = Math.round(parseFloat(data.transferAmount) * 1e8);
+    const amountInSats = btcToSatoshis(data.transferAmount);
     
     // 构建输出列表
     const outputs = data.targetAddresses.map(address => ({
@@ -233,7 +240,7 @@ async function processUtxoTransaction(data) {
     );
     
     if (changeAmount < 0) {
-      showNotification(`余额不足，缺少：${(changeAmount / 1e8).toFixed(8)} BTC`, 'error');
+      showNotification(`余额不足，缺少：${formatBtc(Math.abs(changeAmount))} BTC`, 'error');
       return;
     }
     
@@ -309,7 +316,7 @@ function addInputsToPsbt(psbt, utxos) {
       sequence: 0xfffffffd, // 启用RBF
       witnessUtxo: {
         script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),
-        value: parseInt(utxo.value, 10)
+        value: safeParseInt(utxo.value, 10)
       }
     });
   });

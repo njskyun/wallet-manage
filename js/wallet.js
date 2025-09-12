@@ -27,9 +27,9 @@ function splitHashString(inputString) {
 
   return [{
     txid: parts[0],
-    vout: parseInt(parts[1], 10),
+    vout: safeParseInt(parts[1], 10),
     status: {}, // 保持结构一致性
-    value: parseInt(parts[2], 10)
+    value: safeParseInt(parts[2], 10)
   }];
 }
 
@@ -464,8 +464,8 @@ function selectUtxosWithChange(utxos, paymentAmount, feeRate, opReturnSize = 0, 
       + opReturnSize
       + TRANSACTION_CONSTANTS.outputSize; // 找零输出
 
-    const feeWithChange = Math.ceil(txSizeWithChange * feeRate);
-    const changeAmount = accumulatedValue - paymentAmount - feeWithChange;
+    const feeWithChange = calculateFee(txSizeWithChange, feeRate);
+    const changeAmount = calculateChange(accumulatedValue, paymentAmount, feeWithChange);
 
     // 如果找零足够，返回选中的UTXO
     if (changeAmount >= dustLimit) {
@@ -478,7 +478,7 @@ function selectUtxosWithChange(utxos, paymentAmount, feeRate, opReturnSize = 0, 
       + outputsBeforeChange * TRANSACTION_CONSTANTS.outputSize
       + opReturnSize;
 
-    const feeWithoutChange = Math.ceil(txSizeWithoutChange * feeRate);
+    const feeWithoutChange = calculateFee(txSizeWithoutChange, feeRate);
     
     // 如果足够支付且不需要找零，也可以返回
     if (accumulatedValue >= paymentAmount + feeWithoutChange) {
@@ -541,7 +541,7 @@ function calculateChange(
   const txSize = gettxVsize(chosenUtxos, outputCount, opReturnSize, changeCount);
   
   // 计算手续费
-  const feeAmount = Math.ceil(txSize * feeRate);
+  const feeAmount = calculateFee(txSize, feeRate);
   
   // 计算找零
   const rawChange = totalInputValue - paymentAmount - feeAmount;
