@@ -1,3 +1,5 @@
+import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
+
 // BRC20 铭文管理功能
 class BRC20Manager {
   constructor() {
@@ -605,20 +607,20 @@ class BRC20Manager {
     const type = document.getElementById('mintType').value;
     const content = document.getElementById('mintContent').value;
     const feeRate = document.getElementById('mintFee').value;
+    const mintCount = document.getElementById('mintCount').value;
 
-    if (!type || !content) {
+    if (!type || !content || !mintCount) {
       this.showNotification('请填写完整的铭文信息', 'warning');
       return;
-    }
+    } 
 
-    // 验证内容格式
-    if (!this.validateContent(content, type)) {
-      this.showNotification('铭文内容格式不正确', 'error');
+    if (mintCount > 1000 || mintCount < 1) {
+      this.showNotification('铸造数量不能超过1000或小于1', 'warning');
       return;
     }
 
     // 显示确认模态框
-    this.showMintConfirmation(type, content, feeRate);
+    this.showMintConfirmation(type, content, feeRate,  mintCount);
   }
 
   validateContent(content, type) {
@@ -637,9 +639,9 @@ class BRC20Manager {
     }
   }
 
-  showMintConfirmation(type, content, feeRate) {
-    document.getElementById('confirmContent').innerHTML = this.formatContent(content, type);
- 
+  showMintConfirmation(type, content, feeRate, mintCount) {
+    document.getElementById('confirmContent').innerHTML = content;
+    document.getElementById('confirmCount').innerHTML = "MINT " + mintCount + " 张";
     const modal = new bootstrap.Modal(document.getElementById('transactionModal'));
     modal.show();
   }
@@ -657,19 +659,7 @@ class BRC20Manager {
       
       // 关闭模态框
       const modal = bootstrap.Modal.getInstance(document.getElementById('transactionModal'));
-      modal.hide();
-      
-      // 显示成功消息
-      this.showNotification('铭文铸造成功！', 'success');
-      
-      // 刷新铭文列表
-      setTimeout(() => {
-        this.loadInscriptions();
-      }, 1000);
-      
-      // 重置表单
-      document.getElementById('mintForm').reset();
-      
+      modal.hide(); 
     } catch (error) {
       console.error('铸造失败:', error);
       this.showNotification('铸造失败，请重试', 'error');
@@ -678,52 +668,130 @@ class BRC20Manager {
       confirmBtn.disabled = false;
     }
   }
-
+ 
   async simulateMintProcess() {
     try {
-      const type = document.getElementById('mintType').value;
-      const content = document.getElementById('mintContent').value;
-      const feeRate =  document.getElementById('mintFee').value;
+      const type = document.getElementById('mintType').value;       // text / image / json
+      const content = document.getElementById('mintContent').value; // 铭文内容
+      const feeRate = parseInt(document.getElementById('mintFee').value);
+      const mintCount = parseInt(document.getElementById('mintCount').value) || 1;
+  
+       // 计算 OP_RETURN 数据字节数
+      const buf = Buffer.from(content, 'utf8');  
+      const opHex = buf.toString('hex'); 
+      const opReturnSize = (11 +  buf.length);
       
-      // 获取钱包私钥（实际应用中应该更安全地处理）
-      const privateKey = localStorage.getItem('btcPrivateKey');
-      if (!privateKey) {
-        throw new Error('未找到钱包私钥，请重新连接钱包');
+      
+      //根据feeRate计算最小mint一个铭文需要的金额
+      const minMintValue = calTransSize(1, 1, opReturnSize) * feeRate + 546;
+      const everyUtxoMintValue = minMintValue * 24;
+
+      // 1. 获取可用 UTXO
+      const bestUtxos = await getFilteredUTXOs(this.walletAddress, minMintValue);
+      let allowMintCount = 0;
+      bestUtxos.forEach(utxo => {
+        allowMintCount += Math.floor(utxo.value / minMintValue);
+      });
+
+      if (allowMintCount < mintCount) {
+        showNotification("余额最大可铸造 " + allowMintCount + " 个铭文", "error");
+        return;
       }
-      
-      // 创建铭文交易
-      const inscriptionTx = await this.createInscriptionTransaction(
-        privateKey,
-        content,
-        type,
-        feeRate
-      );
-      
-      // 广播交易
-      const txid = await this.broadcastTransaction(inscriptionTx);
-      
-      if (txid) {
-        // 将新铭文添加到本地列表
-        const newInscription = {
-          id: `inscription_${txid.slice(0, 8)}`,
-          type: type,
-          content: content,
-          timestamp: Date.now(),
-          txid: txid,
-          status: 'pending'
-        };
+ 
+
+       
+      let hexs = []
+      bestUtxos.forEach(utxo => {
+        let psbt = new bitcoinjs.Psbt();
+        alert(this.walletAddress);
+
+        //UTXO 作为输入
+        psbt.addInput({
+          hash: utxo.txid,
+          index: parseInt(utxo.vout),
+          sequence: 0xFFFFFFFD,  // 启用 RBF
+          witnessUtxo: {
+              script: Buffer.from(bitcoinjs.address.toOutputScript(this.walletAddress).toString('hex'), 'hex'),  //脚本公钥，在https://mempool.fractalbitcoin.io网站找
+              value: parseInt(utxo.value)
+          }
+        }); 
         
-        this.inscriptions.unshift(newInscription);
-        return txid;
-      } else {
-        throw new Error('交易广播失败');
-      }
+        
+        const ts_self = calculateChange([utxo], 546, feeRate, 1, opReturnSize);
+ 
+        //添加找零
+        if (ts_self >= 0) { 
+            // 构造铭文脚本
+            const mimeTypeMap = {
+              'text': 'text/plain',
+              'json': 'application/json',
+              'html': 'text/html',
+              'image': 'image/png'
+            };
+            const mimeType = mimeTypeMap[type] || 'text/plain';
+            
+            const inscriptionScript = bitcoinjs.script.compile([
+              bitcoinjs.opcodes.OP_FALSE,
+              bitcoinjs.opcodes.OP_IF,
+              Buffer.from("ord", "ascii"),    // 协议标识
+              Buffer.from([0x01]),            // 版本
+              Buffer.from(mimeType, "utf8"),  // MIME 类型
+              Buffer.from(content, "utf8"),   // 铭文内容
+              bitcoinjs.opcodes.OP_ENDIF,
+            ]);
+ 
+            
+            // 铭文输出必须放在第一个位置
+            psbt.addOutput({
+              script: inscriptionScript,
+              value: 546, // 每个铭文最小输出
+            });
+
+            // 找零输出放在第二个位置
+            if (ts_self > 0) {
+              psbt.addOutput({ 
+                  address: this.walletAddress,  // 接收方地址
+                  value: ts_self,  // 输出金额（聪）
+              }); 
+            }
+
+            hexs.push(psbt.toHex());
+        }  
+      });
       
-    } catch (error) {
-      console.error('铸造过程失败:', error);
+      // 签名与广播
+      const signed = await window.unisat.signPsbts(hexs, [{ address: this.walletAddress}]);
+ 
+      let successCount = 0;
+      let errorCount = 0;
+      for (let i = 0; i < signed.length; i++) {
+          try {
+            const psbtHex = signed[i];
+            // 广播当前 PSBT
+            const txid = await window.unisat.pushPsbt(psbtHex); 
+            successCount++;
+          } catch (err) { 
+            throw err;
+            errorCount++;
+          }
+      }
+  
+      if (successCount > 0) {
+        this.showNotification("成功铸造 " + successCount + " 个铭文", "success");
+      }
+
+      if (errorCount > 0) {
+        this.showNotification("铸造失败：" + errorCount + " 个铭文", "error");
+      }
+
+      return;
+    } catch (error) { 
+      this.showNotification(error.message, "error");
+      console.error('铸造失败:', error.stack);
       throw error;
     }
   }
+  
 
   async createInscriptionTransaction(privateKey, content, type, feeRate) {
     try {

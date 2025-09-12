@@ -23,7 +23,7 @@ function splitHashString(inputString) {
 
 
 
-async function getFilteredUTXOs(btcaddress) {
+async function getFilteredUTXOs(btcaddress, mintValue = 0) {
   try {
     const response = await fetch("https://mempool.space/api/address/" + btcaddress + "/utxo");
     // const response = await fetch("https://mempool.fractalbitcoin.io/api/address/" + btcaddress + "/utxo");
@@ -34,7 +34,7 @@ async function getFilteredUTXOs(btcaddress) {
     const sortedData = data.sort((a, b) => b.value - a.value);
  
  
-    const filteredData = sortedData.filter(utxo => utxo.value != 546 && utxo.value != 10000); 
+    const filteredData = sortedData.filter(utxo => utxo.value != 546 && utxo.value != 10000  && utxo.value != 330 && utxo.value > mintValue); 
 
     return filteredData ? filteredData : [];
   } catch (error) {
@@ -99,7 +99,7 @@ async function getLargestConfirmedUTXO(btcaddress, needmoney) {
 
  
     const validUTXOs = data.filter(
-      utxo => utxo.status.confirmed && utxo.value !== 546 && utxo.value !== 10000
+      utxo => utxo.status.confirmed && utxo.value !== 546 && utxo.value !== 10000 && utxo.value !== 330
     ); 
     
     if (validUTXOs.length === 0) return null;
@@ -211,7 +211,8 @@ async function checkAndExtractMyInputs(txid, myAddress) {
       .filter(vin => 
         vin.prevout?.scriptpubkey_address === myAddress && 
         vin.prevout?.value !== 546 &&
-        vin.prevout?.value !== 10000
+        vin.prevout?.value !== 10000 &&
+        vin.prevout?.value !== 330
       ) 
       .map((vin, index) => {
         return { 
@@ -348,12 +349,12 @@ function parseTargetAddresses(addressText) {
 
 
 
-function calTransSize(inputUtxoNum, outUtxoNum) {
+function calTransSize(inputUtxoNum, outUtxoNum, opReturnSize) {
   const inputSizeP2TR = 58;  // P2TR 输入大小
   const outputSizeP2TR = 43;  // P2TR 输出大小
   const baseTransactionSize = 11;  // 固定开销
   
-  return (baseTransactionSize + (inputSizeP2TR * inputUtxoNum) + (outputSizeP2TR * outUtxoNum));
+  return (baseTransactionSize + (inputSizeP2TR * inputUtxoNum) + (outputSizeP2TR * outUtxoNum) + opReturnSize);
 }
  
 
