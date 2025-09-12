@@ -1,285 +1,406 @@
 import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
 
+// 获取保存的钱包地址
 const savedAddress = localStorage.getItem('btcWalletAddress');
 
+/**
+ * 初始化UTXO选择器
+ */
+async function initializeUtxoSelector() {
+  if (!isWalletConnected()) {
+    showNotification('请先连接钱包', 'error');
+    return;
+  }
+
+  if (!savedAddress) return;
+
+  try {
+    // 获取过滤后的UTXO列表
+    const utxoList = await getFilteredUTXOs(savedAddress);
+    
+    if (utxoList && utxoList.length > 0) {
+      // 添加自动匹配选项
+      $('#utxoInput').append('<option value="-1">系统自动匹配</option>');
+      
+      // 填充UTXO选项
+      utxoList.forEach(utxo => {
+        const optionValue = `${utxo.txid}:${utxo.vout}:${utxo.value}`;
+        const optionText = `${utxo.txid}:${utxo.vout} --> ${(utxo.value / 1e8).toFixed(8)} BTC`;
+        
+        $('#utxoInput').append(
+          $('<option>')
+            .val(optionValue)
+            .text(optionText)
+        );
+      });
+    }
+  } catch (error) {
+    console.error('初始化UTXO选择器失败:', error);
+    showNotification('加载UTXO失败', 'error');
+  }
+}
 
 $(document).ready(function() { 
-  (async function populateUtxoSelect() {
-    // 1. 取出保存的地址
-    if (!isWalletConnected()) {
-      showNotification('请先连接钱包', 'error');
-      return;
-    }
-
-    if (!savedAddress) return;
-  
-    // 2. 等待异步函数执行
-    const utxoInputOption = await getFilteredUTXOs(savedAddress);
-    
-    if (utxoInputOption) {
-      $('#utxoInput').append('<option value="-1">系统自动匹配</option>'); 
-    }
-    // 3. 遍历填充 <select id="utxoInput">
-    utxoInputOption.forEach(item => {
-      $('#utxoInput').append(
-        $('<option>')
-          .val(`${item.txid}:${item.vout}:${item.value}`)
-          .text(`${item.txid}:${item.vout} -->   ${item.value / 1e8}  Btc`)
-      );
-    });
-  })();
+  initializeUtxoSelector();
   
 
 
-  // UTXO form submission
+  // UTXO表单提交处理
   $('#utxoForm').on('submit', function(e) {
     e.preventDefault();
-    
-    // Check if wallet is connected
-    if (!isWalletConnected()) {
-      showNotification('请先连接钱包', 'error');
-      return;
-    }
-    
-    // Get form values
-    const utxoInput = $('#utxoInput').val().trim();
-    const transferAmount = $('#transferAmount').val().trim();
-    const targetAddresses = $('#targetAddresses').val().trim();
-    const feeRate = $('#feeRate').val().trim();
-    
-    // Basic validation
-    if (!utxoInput || !transferAmount || !targetAddresses || !feeRate) {
-      showNotification('请填写所有必填字段', 'error');
-      return;
-    }
-    
-    // Parse target addresses
-    const addresses = parseTargetAddresses(targetAddresses);
-    if (addresses.length === 0) {
-      showNotification('请至少输入一个有效的目标地址', 'error');
-      return;
-    }
-    
-    // Show transaction confirmation modal
-    showTransactionModal('utxo', {
-      utxoInput,
-      transferAmount,
-      targetAddresses: addresses,
-      feeRate
-    });
+    handleUtxoFormSubmit();
   });
 });
-  
-// Show transaction confirmation modal
-function showTransactionModal(type, data) {
-  let detailsHtml = '';
-  let totalAmount = 0;
-  
-  if (type === 'utxo') {
-    // Calculate total amount
-    const amount = parseFloat(data.transferAmount);
-    const numAddresses = data.targetAddresses.length;
-    totalAmount = amount * numAddresses;
-    
-    // Build HTML for transaction details
-    detailsHtml = `
-      <div class="transaction-preview">
-        <h3 class="mb-3">交易详情</h3>
-   
-        <div class="transaction-detail-item">
-          <span class="label">总发送金额:</span>
-          <span class="value">${totalAmount} BTC</span>
-        </div>
-        
-        <div class="transaction-detail-item">
-          <span class="label">每地址金额:</span>
-          <span class="value">${data.transferAmount} BTC</span>
-        </div>
-        
-        <div class="transaction-detail-item">
-          <span class="label">接收地址数量:</span>
-          <span class="value">${data.targetAddresses.length} 个地址</span>
-        </div>
-        
-        <div class="transaction-detail-item">
-          <span class="label">费率:</span>
-          <span class="value">${data.feeRate} sat/vB</span>
-        </div>
-         
-    `;
-     
-    detailsHtml += ` 
-        <div class="warning mt-3">
-          <i class="fas fa-exclamation-triangle me-2"></i>
-          请仔细确认所有交易详情。
-        </div>
-      </div>
-    `;
+
+/**
+ * 处理UTXO表单提交
+ */
+function handleUtxoFormSubmit() {
+  // 检查钱包连接状态
+  if (!isWalletConnected()) {
+    showNotification('请先连接钱包', 'error');
+    return;
   }
   
-  // Set modal content and show it
+  // 获取表单数据
+  const formData = {
+    utxoInput: $('#utxoInput').val().trim(),
+    transferAmount: $('#transferAmount').val().trim(),
+    targetAddresses: $('#targetAddresses').val().trim(),
+    feeRate: $('#feeRate').val().trim()
+  };
+  
+  // 验证表单数据
+  const validationResult = validateUtxoFormData(formData);
+  if (!validationResult.isValid) {
+    showNotification(validationResult.message, 'error');
+    return;
+  }
+  
+  // 解析目标地址
+  const addresses = parseTargetAddresses(formData.targetAddresses);
+  if (addresses.length === 0) {
+    showNotification('请至少输入一个有效的目标地址', 'error');
+    return;
+  }
+  
+  // 显示交易确认模态框
+  showTransactionModal('utxo', {
+    utxoInput: formData.utxoInput,
+    transferAmount: formData.transferAmount,
+    targetAddresses: addresses,
+    feeRate: formData.feeRate
+  });
+}
+
+/**
+ * 验证UTXO表单数据
+ * @param {Object} formData - 表单数据
+ * @returns {Object} 验证结果
+ */
+function validateUtxoFormData(formData) {
+  const { utxoInput, transferAmount, targetAddresses, feeRate } = formData;
+  
+  if (!utxoInput || !transferAmount || !targetAddresses || !feeRate) {
+    return {
+      isValid: false,
+      message: '请填写所有必填字段'
+    };
+  }
+  
+  // 验证转账金额
+  const amount = parseFloat(transferAmount);
+  if (isNaN(amount) || amount <= 0) {
+    return {
+      isValid: false,
+      message: '请输入有效的转账金额'
+    };
+  }
+  
+  // 验证费率
+  const rate = parseFloat(feeRate);
+  if (isNaN(rate) || rate <= 0) {
+    return {
+      isValid: false,
+      message: '请输入有效的费率'
+    };
+  }
+  
+  return { isValid: true };
+}
+
+/**
+ * 显示交易确认模态框
+ * @param {string} type - 交易类型
+ * @param {Object} data - 交易数据
+ */
+function showTransactionModal(type, data) {
+  let detailsHtml = '';
+  
+  if (type === 'utxo') {
+    detailsHtml = buildUtxoTransactionDetails(data);
+  }
+  
+  // 设置模态框内容
   $('#transactionDetails').html(detailsHtml);
   
-  // Set up confirm button
+  // 设置确认按钮事件
   $('#confirmTransaction').off('click').on('click', function() {
     if (type === 'utxo') {
       processUtxoTransaction(data);
     }
   });
   
-  // Show the modal
+  // 显示模态框
   const transactionModal = new bootstrap.Modal(document.getElementById('transactionModal'));
   transactionModal.show();
 }
 
-// Process UTXO transaction
-async function processUtxoTransaction(data) { 
-  const amount = Math.round(parseFloat(data.transferAmount) * 1e8); // 转换为聪并四舍五入 
-  // 构建输出列表
-  const outputs = data.targetAddresses.map(address => ({
+/**
+ * 构建UTXO交易详情HTML
+ * @param {Object} data - 交易数据
+ * @returns {string} HTML字符串
+ */
+function buildUtxoTransactionDetails(data) {
+  const amount = parseFloat(data.transferAmount);
+  const numAddresses = data.targetAddresses.length;
+  const totalAmount = amount * numAddresses;
+  
+  return `
+    <div class="transaction-preview">
+      <h3 class="mb-3">交易详情</h3>
+      
+      <div class="transaction-detail-item">
+        <span class="label">总发送金额:</span>
+        <span class="value">${totalAmount.toFixed(8)} BTC</span>
+      </div>
+      
+      <div class="transaction-detail-item">
+        <span class="label">每地址金额:</span>
+        <span class="value">${amount.toFixed(8)} BTC</span>
+      </div>
+      
+      <div class="transaction-detail-item">
+        <span class="label">接收地址数量:</span>
+        <span class="value">${numAddresses} 个地址</span>
+      </div>
+      
+      <div class="transaction-detail-item">
+        <span class="label">费率:</span>
+        <span class="value">${data.feeRate} sat/vB</span>
+      </div>
+      
+      <div class="warning mt-3">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        请仔细确认所有交易详情。
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * 处理UTXO交易
+ * @param {Object} data - 交易数据
+ */
+async function processUtxoTransaction(data) {
+  try {
+    // 转换金额为聪
+    const amountInSats = Math.round(parseFloat(data.transferAmount) * 1e8);
+    
+    // 构建输出列表
+    const outputs = data.targetAddresses.map(address => ({
       address: address.trim(),
-      value: amount
-  }));
+      value: amountInSats
+    }));
 
-  const psbt = new bitcoinjs.Psbt();
-
-  try {  
-      let bestUtxos = []
-
-      if (data.utxoInput == "-1") {
-        const utxos = await getFilteredUTXOs(savedAddress);
-        bestUtxos = selectUtxosWithChange(utxos, data.targetAddresses.length * amount, data.feeRate); 
-        if (!bestUtxos.length) {
-          showNotification("余额不足", 'error');
-          return
-        }
-      } else { 
-        bestUtxos = splitHashString(data.utxoInput);
-        if (!bestUtxos.length) {
-          showNotification('请正确选择 UTXO', 'error');
-          return
-        }
-      } 
-      
-      let payAmount = 0;
-      // 将每个选中的 UTXO 添加为输入
-      bestUtxos.forEach(utxo => {
-        payAmount = payAmount + parseInt(utxo.value)
-        //添加所有 UTXO 作为输入 
-        psbt.addInput({
-          hash: utxo.txid,
-          index: parseInt(utxo.vout),
-          sequence: 0xfffffffd,  // 启用 RBF
-          witnessUtxo: {
-              script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),  //脚本公钥，在https://mempool.fractalbitcoin.io网站找
-              value: parseInt(utxo.value)
-          }
-        });
+    const psbt = new bitcoinjs.Psbt();
+    
+    // 选择UTXO
+    const selectedUtxos = await selectUtxosForTransaction(data, amountInSats);
+    if (!selectedUtxos.length) {
+      return;
+    }
+    
+    // 添加输入到PSBT
+    addInputsToPsbt(psbt, selectedUtxos);
+    
+    // 计算找零
+    const changeAmount = calculateChange(
+      selectedUtxos, 
+      data.targetAddresses.length * amountInSats, 
+      data.feeRate, 
+      data.targetAddresses.length
+    );
+    
+    if (changeAmount < 0) {
+      showNotification(`余额不足，缺少：${(changeAmount / 1e8).toFixed(8)} BTC`, 'error');
+      return;
+    }
+    
+    // 添加找零输出
+    if (changeAmount > 0) {
+      psbt.addOutput({
+        address: savedAddress,
+        value: changeAmount
       });
-      
-      const ts_self = calculateChange(bestUtxos, data.targetAddresses.length * amount, data.feeRate, data.targetAddresses.length)
- 
-      if (ts_self < 0) {    
-        showNotification("余额不足, 缺少：" + ts_self / 1e8, 'error');  
-        return;
-      }
-      
-      //计算剩余转给自己
-      if (ts_self > 0) {
-          psbt.addOutput({
-              address: savedAddress,  // 接收方地址
-              value: ts_self,  // 输出金额（聪）
-          });  
-      }
- 
-      //逐个添加输出，添加调试信息
-      outputs.forEach((output, index) => {
-          psbt.addOutput({
-              address: output.address,  // 接收方地址
-              value: output.value,  // 输出金额（聪）
-          }); 
-      }); 
- 
-      //签名
-      const signedPsbtHex = await window.unisat.signPsbt(psbt.toHex());
-
-      const signPsbtHex = bitcoinjs.Psbt.fromHex(signedPsbtHex);
-      const rawTxHex = signPsbtHex.extractTransaction().toHex();
-      $("#utxo-rawTxHex").val(rawTxHex);
-
-      //广播交易
-      const tx = await mempoolbroadcastTx(rawTxHex);
-      // let res = await window.unisat.pushPsbt(signedPsbtHex); 
-      
-      // Hide modal
-      const modalElement = document.getElementById('transactionModal');
-      const modal = bootstrap.Modal.getInstance(modalElement);
-      modal.hide();
-      
-      // Show processing notification 
-      // Show processing notification 
-      if (tx.success) {
-          showNotification('广播成功： ' + tx.txid, 'success');
-      } else {
-          showNotification('广播失败： ' + tx.message, 'error');
-      } 
-  } catch (err) {     
-      console.error('❗ Non-Error exception caught:', err);
-
-      showNotification(err.message, 'error');
+    }
+    
+    // 添加支付输出
+    outputs.forEach(output => {
+      psbt.addOutput({
+        address: output.address,
+        value: output.value
+      });
+    });
+    
+    // 签名并广播交易
+    await signAndBroadcastTransaction(psbt);
+    
+  } catch (error) {
+    console.error('处理UTXO交易失败:', error);
+    showNotification(error.message || '交易处理失败', 'error');
   }
 }
 
-// Add some CSS for the transaction modal
+/**
+ * 选择UTXO用于交易
+ * @param {Object} data - 交易数据
+ * @param {number} amountInSats - 金额（聪）
+ * @returns {Promise<Array>} 选中的UTXO数组
+ */
+async function selectUtxosForTransaction(data, amountInSats) {
+  if (data.utxoInput === "-1") {
+    // 自动选择UTXO
+    const utxos = await getFilteredUTXOs(savedAddress);
+    const selectedUtxos = selectUtxosWithChange(
+      utxos, 
+      data.targetAddresses.length * amountInSats, 
+      data.feeRate
+    );
+    
+    if (!selectedUtxos.length) {
+      showNotification("余额不足", 'error');
+      return [];
+    }
+    
+    return selectedUtxos;
+  } else {
+    // 使用指定的UTXO
+    const selectedUtxos = splitHashString(data.utxoInput);
+    if (!selectedUtxos.length) {
+      showNotification('请正确选择UTXO', 'error');
+      return [];
+    }
+    
+    return selectedUtxos;
+  }
+}
+
+/**
+ * 添加输入到PSBT
+ * @param {Object} psbt - PSBT对象
+ * @param {Array} utxos - UTXO数组
+ */
+function addInputsToPsbt(psbt, utxos) {
+  utxos.forEach(utxo => {
+    psbt.addInput({
+      hash: utxo.txid,
+      index: parseInt(utxo.vout, 10),
+      sequence: 0xfffffffd, // 启用RBF
+      witnessUtxo: {
+        script: Buffer.from(bitcoinjs.address.toOutputScript(savedAddress).toString('hex'), 'hex'),
+        value: parseInt(utxo.value, 10)
+      }
+    });
+  });
+}
+
+/**
+ * 签名并广播交易
+ * @param {Object} psbt - PSBT对象
+ */
+async function signAndBroadcastTransaction(psbt) {
+  // 签名交易
+  const signedPsbtHex = await window.unisat.signPsbt(psbt.toHex());
+  const signedPsbt = bitcoinjs.Psbt.fromHex(signedPsbtHex);
+  const rawTxHex = signedPsbt.extractTransaction().toHex();
+  
+  // 保存原始交易十六进制
+  $("#utxo-rawTxHex").val(rawTxHex);
+  
+  // 广播交易
+  const broadcastResult = await mempoolbroadcastTx(rawTxHex);
+  
+  // 隐藏模态框
+  const modalElement = document.getElementById('transactionModal');
+  const modal = bootstrap.Modal.getInstance(modalElement);
+  modal.hide();
+  
+  // 显示结果
+  if (broadcastResult.success) {
+    showNotification(`广播成功：${broadcastResult.txid}`, 'success');
+  } else {
+    showNotification(`广播失败：${broadcastResult.message}`, 'error');
+  }
+}
+
+/**
+ * 添加交易模态框样式
+ */
+function addTransactionModalStyles() {
+  const styles = `
+    .transaction-detail-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .transaction-detail-item .label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    
+    .transaction-detail-item .value {
+      font-weight: 600;
+      font-family: monospace;
+    }
+    
+    .address-list {
+      max-height: 150px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 10px;
+    }
+    
+    .address-item {
+      display: flex;
+      margin-bottom: 5px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    
+    .address-number {
+      color: var(--accent-color);
+      margin-right: 10px;
+      min-width: 20px;
+    }
+    
+    .warning {
+      color: var(--warning-color);
+      font-size: 0.9rem;
+      padding: 10px;
+      background: rgba(255, 193, 7, 0.1);
+      border-radius: 4px;
+    }
+  `;
+  
+  $('<style>').text(styles).appendTo('head');
+}
+
+// 页面加载完成后添加样式
 $(document).ready(function() {
-  $('<style>')
-    .text(`
-      .transaction-detail-item {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      
-      .transaction-detail-item .label {
-        color: var(--text-secondary);
-        font-weight: 500;
-      }
-      
-      .transaction-detail-item .value {
-        font-weight: 600;
-        font-family: monospace;
-      }
-      
-      .address-list {
-        max-height: 150px;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        padding: 10px;
-      }
-      
-      .address-item {
-        display: flex;
-        margin-bottom: 5px;
-        font-family: monospace;
-        font-size: 0.9rem;
-      }
-      
-      .address-number {
-        color: var(--accent-color);
-        margin-right: 10px;
-        min-width: 20px;
-      }
-      
-      .warning {
-        color: var(--warning-color);
-        font-size: 0.9rem;
-        padding: 10px;
-        background: rgba(255, 193, 7, 0.1);
-        border-radius: 4px;
-      }
-    `)
-    .appendTo('head');
+  addTransactionModalStyles();
 });

@@ -1,12 +1,24 @@
+/**
+ * 截取字符串中间部分，保留前后指定长度
+ * @param {string} str - 要截取的字符串
+ * @param {number} frontLen - 前面保留的长度
+ * @param {number} backLen - 后面保留的长度
+ * @returns {string} 截取后的字符串
+ */
 function truncateMiddle(str, frontLen, backLen) {
   if (typeof str !== 'string' || str.length <= frontLen + backLen) {
     return str;
   }
   const head = str.slice(0, frontLen);
   const tail = str.slice(str.length - backLen);
-  return head + '…' + tail;
+  return `${head}…${tail}`;
 }
 
+/**
+ * 解析UTXO字符串格式 "txid:vout:value"
+ * @param {string} inputString - 格式化的UTXO字符串
+ * @returns {Array<Object>} 解析后的UTXO对象数组
+ */
 function splitHashString(inputString) {
   if (typeof inputString !== "string") return [];
 
@@ -15,75 +27,96 @@ function splitHashString(inputString) {
 
   return [{
     txid: parts[0],
-    vout: parseInt(parts[1]),
-    status: {}, // 可选，保持结构一致
-    value: parseInt(parts[2])
+    vout: parseInt(parts[1], 10),
+    status: {}, // 保持结构一致性
+    value: parseInt(parts[2], 10)
   }];
 }
 
 
 
-async function getFilteredUTXOs(btcaddress, mintValue = 0) {
+/**
+ * 获取过滤后的UTXO列表
+ * @param {string} btcAddress - 比特币地址
+ * @param {number} mintValue - 最小金额过滤值
+ * @returns {Promise<Array>} 过滤后的UTXO数组
+ */
+async function getFilteredUTXOs(btcAddress, mintValue = 0) {
   try {
-    const response = await fetch("https://mempool.space/api/address/" + btcaddress + "/utxo");
-    // const response = await fetch("https://mempool.fractalbitcoin.io/api/address/" + btcaddress + "/utxo");
+    const response = await fetch(`https://mempool.space/api/address/${btcAddress}/utxo`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
     
     const data = await response.json();
- 
-    // Sort by value in descending order
+    
+    // 按金额降序排序
     const sortedData = data.sort((a, b) => b.value - a.value);
- 
- 
-    const filteredData = sortedData.filter(utxo => utxo.value != 546 && utxo.value != 10000  && utxo.value != 330 && utxo.value > mintValue); 
+    
+    // 过滤掉特殊金额的UTXO
+    const EXCLUDED_VALUES = [546, 10000, 330];
+    const filteredData = sortedData.filter(utxo => 
+      !EXCLUDED_VALUES.includes(utxo.value) && utxo.value > mintValue
+    );
 
-    return filteredData ? filteredData : [];
+    return filteredData || [];
   } catch (error) {
-    console.error('Error:', error);
+    console.error('获取UTXO失败:', error);
     return [];
   }
 }
 
 
 
+/**
+ * 通过mempool.space广播交易
+ * @param {string} rawTxHex - 原始交易十六进制字符串
+ * @returns {Promise<Object>} 广播结果对象
+ */
 async function mempoolbroadcastTx(rawTxHex) {
   try {
-    const res = await fetch("https://mempool.space/api/tx", {
+    const response = await fetch("https://mempool.space/api/tx", {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: rawTxHex.trim()
     });
 
-    const text = await res.text();
+    const responseText = await response.text();
 
-    if (!res.ok) {
-      // 尝试提取 JSON 错误体
-      const match = text.match(/{.*}$/);
-      if (match) {
-        const errJson = JSON.parse(match[0]);
-        return {
-          success: false,
-          code: errJson.code,
-          message: errJson.message
-        };
+    if (!response.ok) {
+      // 尝试解析JSON错误信息
+      const jsonMatch = responseText.match(/{.*}$/);
+      if (jsonMatch) {
+        try {
+          const errorJson = JSON.parse(jsonMatch[0]);
+          return {
+            success: false,
+            code: errorJson.code,
+            message: errorJson.message
+          };
+        } catch (parseError) {
+          // JSON解析失败，使用原始错误信息
+        }
       }
+      
       return {
         success: false,
-        code: res.status,
-        message: text || "Unknown error"
+        code: response.status,
+        message: responseText || "未知错误"
       };
     }
 
-    // 成功时返回 txid
     return {
       success: true,
-      txid: text.trim()
+      txid: responseText.trim()
     };
 
-  } catch (err) {
+  } catch (error) {
     return {
       success: false,
       code: -1,
-      message: err.message
+      message: error.message
     };
   }
 }
@@ -261,54 +294,72 @@ $(document).ready(function () {
 
  
 
-// Mock function to simulate wallet connection
-// In a real app, this would use an actual BTC wallet connection library
+/**
+ * 连接比特币钱包
+ * @returns {Promise<void>}
+ */
 async function connectWallet() {
-  try { 
-      // Show loading effect
-      const $connectBtn = $('#connectWallet'); 
-      $connectBtn.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>连接中...');
-      $connectBtn.prop('disabled', true);
-       
-      walletAddress = await window.unisat.requestAccounts(); 
-      if (walletAddress) {
-          // Store in session
-          localStorage.setItem('btcWalletAddress', walletAddress[0]);
-          // Show success notification
-          showNotification('钱包连接成功！', 'success');  
-          location.reload();
-       }
-  } catch (err) { 
-      showNotification(err.message, 'error');
+  try {
+    // 显示加载状态
+    const $connectBtn = $('#connectWallet');
+    $connectBtn.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>连接中...');
+    $connectBtn.prop('disabled', true);
+    
+    // 请求钱包账户
+    const walletAddresses = await window.unisat.requestAccounts();
+    
+    if (walletAddresses && walletAddresses.length > 0) {
+      // 保存钱包地址
+      localStorage.setItem('btcWalletAddress', walletAddresses[0]);
+      
+      // 显示成功通知
+      showNotification('钱包连接成功！', 'success');
+      
+      // 重新加载页面以更新UI
+      location.reload();
+    } else {
+      throw new Error('未获取到钱包地址');
+    }
+  } catch (error) {
+    console.error('钱包连接失败:', error);
+    showNotification(error.message || '钱包连接失败', 'error');
   }
 }
 
-// Disconnect wallet function
+/**
+ * 断开钱包连接
+ * @returns {Promise<void>}
+ */
 async function disconnectWallet() {
-  // Show loading effect
-  const $connectBtn = $('#connectWallet');
-  $connectBtn.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>断开中...');
-  $connectBtn.prop('disabled', true);
-  
-  // Simulate disconnect
-  setTimeout(function() {
-    // Hide wallet info
-    $('#walletInfo').addClass('d-none');
-    $('#walletAddress').text('');
+  try {
+    // 显示加载状态
+    const $connectBtn = $('#connectWallet');
+    $connectBtn.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>断开中...');
+    $connectBtn.prop('disabled', true);
     
-    // Reset button
-    $connectBtn.html('<i class="fas fa-wallet me-2"></i>连接BTC钱包');
-    $connectBtn.prop('disabled', false);
-    
-    // Clear session
-    localStorage.removeItem('btcWalletAddress');
- 
-    // Show notification
-    showNotification('钱包已断开连接', 'warning'); 
-    
-    // Restore original connect behavior
-    $connectBtn.off('click').on('click', connectWallet);
-  }, 255);
+    // 模拟断开过程
+    setTimeout(() => {
+      // 隐藏钱包信息
+      $('#walletInfo').addClass('d-none');
+      $('#walletAddress').text('');
+      
+      // 重置按钮
+      $connectBtn.html('<i class="fas fa-wallet me-2"></i>连接BTC钱包');
+      $connectBtn.prop('disabled', false);
+      
+      // 清除本地存储
+      localStorage.removeItem('btcWalletAddress');
+      
+      // 显示通知
+      showNotification('钱包已断开连接', 'warning');
+      
+      // 恢复连接行为
+      $connectBtn.off('click').on('click', connectWallet);
+    }, 250);
+  } catch (error) {
+    console.error('断开钱包失败:', error);
+    showNotification('断开钱包失败', 'error');
+  }
 }
 
 
@@ -332,162 +383,174 @@ $(document).ready(function() {
 });
 
 
+/**
+ * 检查钱包是否已连接
+ * @returns {boolean} 钱包连接状态
+ */
 function isWalletConnected() {
   return localStorage.getItem('btcWalletAddress') !== null;
 }
 
 
-// Parse textarea containing target addresses (one per line)
+/**
+ * 解析目标地址文本（每行一个地址）
+ * @param {string} addressText - 包含地址的文本
+ * @returns {Array<string>} 解析后的地址数组
+ */
 function parseTargetAddresses(addressText) {
   if (!addressText) return [];
   
-  // Split by newline and filter out empty lines
-  return addressText.split('\n')
+  return addressText
+    .split('\n')
     .map(addr => addr.trim())
     .filter(addr => addr.length > 0);
 }
 
 
 
-function calTransSize(inputUtxoNum, outUtxoNum, opReturnSize) {
-  const inputSizeP2TR = 58;  // P2TR 输入大小
-  const outputSizeP2TR = 43;  // P2TR 输出大小
-  const baseTransactionSize = 11;  // 固定开销
+/**
+ * 计算交易大小
+ * @param {number} inputCount - 输入数量
+ * @param {number} outputCount - 输出数量
+ * @param {number} opReturnSize - OP_RETURN大小
+ * @returns {number} 交易大小
+ */
+function calTransSize(inputCount, outputCount, opReturnSize) {
+  const TRANSACTION_CONSTANTS = {
+    inputSize: 58,      // P2TR输入大小
+    outputSize: 43,     // P2TR输出大小
+    baseSize: 11        // 固定开销
+  };
   
-  return (baseTransactionSize + (inputSizeP2TR * inputUtxoNum) + (outputSizeP2TR * outUtxoNum) + opReturnSize);
+  return TRANSACTION_CONSTANTS.baseSize 
+    + (TRANSACTION_CONSTANTS.inputSize * inputCount) 
+    + (TRANSACTION_CONSTANTS.outputSize * outputCount) 
+    + opReturnSize;
 }
  
 
 
 /**
- * 动态 UTXO 选择，含找零输出
- * @param {Array<{txid:string, vout:number, value:number}>} utxos
- *   按 value 降序排序的 UTXO 列表
- * @param {number} paymentAmount
- *   要支付给对方的金额（satoshi）
- * @param {number} feeRate
- *   费率，单位 sat/vB
- * @param {number} opReturnSize
- *   OP_RETURN 输出的 vsize（若无，则传 0）
- * @param {number} dustLimit
- *   找零阈值（satoshi），小于此值不创建找零输出
- * @returns {Array} 选中的 UTXO 数组，如果不足则返回空数组
+ * 动态UTXO选择算法，支持找零输出
+ * @param {Array<{txid:string, vout:number, value:number}>} utxos - 按金额降序排序的UTXO列表
+ * @param {number} paymentAmount - 支付金额（satoshi）
+ * @param {number} feeRate - 费率（sat/vB）
+ * @param {number} opReturnSize - OP_RETURN输出大小（vB），无则传0
+ * @param {number} dustLimit - 找零阈值（satoshi）
+ * @returns {Array} 选中的UTXO数组，不足则返回空数组
  */
-function selectUtxosWithChange(
-  utxos,
-  paymentAmount,
-  feeRate,
-  opReturnSize = 0,
-  dustLimit = 330
-) {
+function selectUtxosWithChange(utxos, paymentAmount, feeRate, opReturnSize = 0, dustLimit = 330) {
   const selected = [];
-  let accValue = 0;
+  let accumulatedValue = 0;
 
-  // 常量估算值
-  const headerSize = 10.5;   // 版本、marker/flag、nIn、nOut、locktime
-  const inputSize  = 57.5;     // P2TR 输入
-  const payOutSize = 43;     // P2TR 支付输出
+  // 交易大小常量
+  const TRANSACTION_CONSTANTS = {
+    headerSize: 10.5,    // 版本、marker/flag、nIn、nOut、locktime
+    inputSize: 57.5,     // P2TR输入大小
+    outputSize: 43       // P2TR输出大小
+  };
 
-  for (let i = 0; i < utxos.length; i++) {
-    selected.push(utxos[i]);
-    accValue += utxos[i].value;
+  for (const utxo of utxos) {
+    selected.push(utxo);
+    accumulatedValue += utxo.value;
 
     const inputCount = selected.length;
-    const outputsBeforeChange = 1                       // 对方支付
-                             + (opReturnSize > 0 ? 1 : 0)  // OP_RETURN
-                             ;
-    // 先假设会产生找零：输出数 +1
-    let outputCount = outputsBeforeChange + 1;
+    const outputsBeforeChange = 1 + (opReturnSize > 0 ? 1 : 0);
+    
+    // 计算包含找零的交易大小
+    const txSizeWithChange = TRANSACTION_CONSTANTS.headerSize
+      + inputCount * TRANSACTION_CONSTANTS.inputSize
+      + outputsBeforeChange * TRANSACTION_CONSTANTS.outputSize
+      + opReturnSize
+      + TRANSACTION_CONSTANTS.outputSize; // 找零输出
 
-    // 计算交易大小：头 + 输入*inputSize + 支付输出*payOutSize + OP_RETURN + 找零输出*payOutSize
-    const txSize = headerSize
-                 + inputCount * inputSize
-                 + (outputsBeforeChange * payOutSize)
-                 + opReturnSize
-                 + payOutSize; // 找零输出也是一个 P2TR 输出
+    const feeWithChange = Math.ceil(txSizeWithChange * feeRate);
+    const changeAmount = accumulatedValue - paymentAmount - feeWithChange;
 
-    const feeSat = Math.ceil(txSize * feeRate);
-
-    // 此时需要总额为 paymentAmount + feeSat
-    // 但如果“找零金额”小于 dustLimit，则实际上不会创建找零输出
-    const change = accValue - paymentAmount - feeSat;
-    if (change >= dustLimit) {
-      // 找零足够时，以上计算正确
+    // 如果找零足够，返回选中的UTXO
+    if (changeAmount >= dustLimit) {
       return selected;
-    } else {
-      // 如果累加后 change < dustLimit，则不应该单独创建找零
-      // 这时输出数应当少 1（不创建找零），重新计算 txSize 和 feeSat
-      outputCount = outputsBeforeChange;
-      const txSizeNoChange = headerSize
-                           + inputCount * inputSize
-                           + outputsBeforeChange * payOutSize
-                           + opReturnSize;
-      const feeNoChange = Math.ceil(txSizeNoChange * feeRate);
-
-      // 如果 accValue 已足够支付 paymentAmount + feeNoChange，则也可以停止
-      if (accValue >= paymentAmount + feeNoChange) {
-        return selected;
-      }
     }
-    // 否则继续下一个 UTXO
+
+    // 如果找零不足，重新计算不包含找零的交易
+    const txSizeWithoutChange = TRANSACTION_CONSTANTS.headerSize
+      + inputCount * TRANSACTION_CONSTANTS.inputSize
+      + outputsBeforeChange * TRANSACTION_CONSTANTS.outputSize
+      + opReturnSize;
+
+    const feeWithoutChange = Math.ceil(txSizeWithoutChange * feeRate);
+    
+    // 如果足够支付且不需要找零，也可以返回
+    if (accumulatedValue >= paymentAmount + feeWithoutChange) {
+      return selected;
+    }
   }
 
-  // 遍历完成仍不足
+  // 所有UTXO都不足
   return [];
 }
 
-function gettxVsize(chosenUtxos, outnum = 1, opReturnSize = 0, changeCount = 1) {
-  const headerSize = 10.5;   // 版本、marker/flag、nIn、nOut、locktime
-  const inputSize  = 57.5;     // P2TR 输入约 57.5 vB 向上取整
-  const payOutSize = 43;     // P2TR 支付或找零输出
+/**
+ * 计算交易虚拟字节大小
+ * @param {Array} chosenUtxos - 选中的UTXO数组
+ * @param {number} outputCount - 输出数量
+ * @param {number} opReturnSize - OP_RETURN大小
+ * @param {number} changeCount - 找零输出数量
+ * @returns {number} 交易虚拟字节大小
+ */
+function gettxVsize(chosenUtxos, outputCount = 1, opReturnSize = 0, changeCount = 1) {
+  const TRANSACTION_CONSTANTS = {
+    headerSize: 10.5,    // 版本、marker/flag、nIn、nOut、locktime
+    inputSize: 57.5,     // P2TR输入大小
+    outputSize: 43       // P2TR输出大小
+  };
 
-  //计算交易虚拟字节大小 (vsize)
-  const txSize = headerSize
-    + chosenUtxos.length * inputSize
-    + outnum * payOutSize
+  const txSize = TRANSACTION_CONSTANTS.headerSize
+    + chosenUtxos.length * TRANSACTION_CONSTANTS.inputSize
+    + outputCount * TRANSACTION_CONSTANTS.outputSize
     + opReturnSize
-    + changeCount * payOutSize;
+    + changeCount * TRANSACTION_CONSTANTS.outputSize;
 
   return Math.ceil(txSize);
 }
 
 /**
- * 计算在选定 UTXO、支付 & OP_RETURN 输出后，交易产生的找零金额
- *
- * @param {Array<{value:number}>} chosenUtxos   已选定的 UTXO 列表（只需 value 字段）
- * @param {number} paymentAmount                支付给对方的金额（satoshi）
- * @param {number} feeRate                      费率（sat/vB）
- * @param {number} opReturnSize                 OP_RETURN 输出大小（vB），无则传 0
- * @param {number} dustLimit                    找零尘埃阈值（satoshi）
- * @returns {number} 实际找零金额（≥ dustLimit），否则返回 0
+ * 计算交易找零金额
+ * @param {Array<{value:number}>} chosenUtxos - 选中的UTXO列表
+ * @param {number} paymentAmount - 支付金额（satoshi）
+ * @param {number} feeRate - 费率（sat/vB）
+ * @param {number} outputCount - 输出数量
+ * @param {number} opReturnSize - OP_RETURN大小（vB）
+ * @param {number} dustLimit - 找零阈值（satoshi）
+ * @param {number} changeCount - 找零输出数量
+ * @returns {number} 找零金额，不足则返回负数
  */
 function calculateChange(
   chosenUtxos,
   paymentAmount,
   feeRate,
-  outnum,
+  outputCount,
   opReturnSize = 0,
   dustLimit = 330,
   changeCount = 1
 ) {
- 
-  // 1. 累加所有选中 UTXO 的总值
-  const totalInputValue = chosenUtxos.reduce((sum, u) => sum + u.value, 0);
- 
- 
-  // 3. 计算交易虚拟字节大小 (vsize)
-  const txSize = gettxVsize(chosenUtxos, outnum, opReturnSize, changeCount)
-
-  // 4. 动态手续费
-  const feeSat = Math.ceil(txSize * feeRate);
-
-  // 5. 计算找零
-  const rawChange = totalInputValue - paymentAmount - feeSat;
-
-  // 6. 小于尘埃阈值则不创建找零
+  // 计算总输入金额
+  const totalInputValue = chosenUtxos.reduce((sum, utxo) => sum + utxo.value, 0);
+  
+  // 计算交易大小
+  const txSize = gettxVsize(chosenUtxos, outputCount, opReturnSize, changeCount);
+  
+  // 计算手续费
+  const feeAmount = Math.ceil(txSize * feeRate);
+  
+  // 计算找零
+  const rawChange = totalInputValue - paymentAmount - feeAmount;
+  
+  // 如果余额不足，返回负数
   if (rawChange < 0) {
     return rawChange;
   }
-
+  
+  // 如果找零小于阈值，返回0（不创建找零输出）
   return rawChange >= dustLimit ? rawChange : 0;
 }
